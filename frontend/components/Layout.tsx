@@ -16,10 +16,13 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isBurgerOpen, setIsBurgerOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isReportIssueModalOpen, setIsReportIssueModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  const burgerRef = React.useRef<HTMLDivElement>(null);
 
   // Dark mode toggle logic
   useEffect(() => {
@@ -31,6 +34,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       setIsDarkMode(false);
     }
   }, []);
+
+  // Close burger menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (burgerRef.current && !burgerRef.current.contains(event.target as Node)) {
+        setIsBurgerOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Close burger menu on navigation
+  useEffect(() => {
+    setIsBurgerOpen(false);
+  }, [location.pathname]);
 
   const toggleDarkMode = () => {
     if (isDarkMode) {
@@ -47,9 +68,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     logout();
     navigate('/');
     setIsMenuOpen(false);
+    setIsBurgerOpen(false);
   };
 
   const isActive = (path: string) => location.pathname === path ? 'text-marine-600 dark:text-marine-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-marine-600 dark:hover:text-marine-300';
+
+  // Find the topmost language that the user has chosen that is not English
+  const prefs = user?.languagePreferences;
+  const priorityLangs = [prefs?.nativeLanguage, ...(prefs?.translationLanguages || [])];
+  const topmostNonEnglishLang = priorityLangs.find(
+    (lang): lang is string => typeof lang === 'string' && lang.trim().length > 0 && lang.toLowerCase() !== 'en'
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
@@ -69,30 +98,103 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center space-x-8">
-              <Link to="/about" className={isActive('/about')}>About</Link>
-              <Link to="/communities" className={isActive('/communities')}>Communities</Link>
-              <Link to="/documentation" className={isActive('/documentation')}>Documentation</Link>
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <>
                   <Link to="/browse" className={isActive('/browse')}>Browse</Link>
-                  <Link to="/dashboard" className={isActive('/dashboard')}>Dashboard</Link>
                   {user?.isAdmin && (
                     <Link to="/admin" className={`${isActive('/admin')} flex items-center gap-1`}>
                        <ShieldCheck size={16} /> Admin
                     </Link>
                   )}
                 </>
+              ) : (
+                <>
+                  <Link to="/about" className={isActive('/about')}>About</Link>
+                  <Link to="/communities" className={isActive('/communities')}>Communities</Link>
+                  <Link to="/documentation" className={isActive('/documentation')}>Documentation</Link>
+                </>
               )}
             </nav>
 
             <div className="hidden md:flex items-center gap-4">
-              <button 
-                onClick={() => setIsReportIssueModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-marine-600 dark:hover:text-marine-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <AlertCircle size={18} />
-                <span>Report Issue</span>
-              </button>
+              {/* If NOT authenticated, show the Report Issue button here */}
+              {!isAuthenticated && (
+                <button 
+                  onClick={() => setIsReportIssueModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-marine-600 dark:hover:text-marine-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <AlertCircle size={18} />
+                  <span>Report Issue</span>
+                </button>
+              )}
+
+              {/* If authenticated, show Flow button and Burger Menu */}
+              {isAuthenticated && (
+                <>
+                  {topmostNonEnglishLang && (
+                    <Link
+                      to={`/flow?language=${topmostNonEnglishLang}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-marine-500 to-marine-600 hover:from-marine-600 hover:to-marine-700 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:shadow-md"
+                    >
+                      <Zap size={15} className="fill-white" />
+                      <span>Flow</span>
+                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded font-bold uppercase">
+                        {topmostNonEnglishLang}
+                      </span>
+                    </Link>
+                  )}
+
+                  {/* Burger Menu */}
+                  <div ref={burgerRef} className="relative">
+                    <button 
+                      onClick={() => setIsBurgerOpen(!isBurgerOpen)}
+                      className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors ${isBurgerOpen ? 'bg-slate-100 dark:bg-slate-800' : ''}`}
+                      aria-label="Menu"
+                    >
+                      <Menu size={20} />
+                    </button>
+                    {isBurgerOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-100 dark:border-slate-700 py-1 z-50">
+                        <Link 
+                          to="/dashboard" 
+                          className="block px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          Dashboard
+                        </Link>
+                        <Link 
+                          to="/communities" 
+                          className="block px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          Communities
+                        </Link>
+                        <Link 
+                          to="/about" 
+                          className="block px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          About
+                        </Link>
+                        <Link 
+                          to="/documentation" 
+                          className="block px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          Documentation
+                        </Link>
+                        <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+                        <button 
+                          onClick={() => {
+                            setIsReportIssueModalOpen(true);
+                            setIsBurgerOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2"
+                        >
+                          <AlertCircle size={16} />
+                          <span>Report Issue</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
               
               <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400">
                 {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
