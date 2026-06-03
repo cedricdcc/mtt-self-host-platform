@@ -8,9 +8,11 @@ interface SplineSceneProps {
   scene: string;
   fallbackImage?: string;
   className?: string;
+  minHeight?: string;
+  onLoad?: (app: any) => void;
 }
 
-export const SplineScene: React.FC<SplineSceneProps> = ({ scene, fallbackImage, className }) => {
+export const SplineScene: React.FC<SplineSceneProps> = ({ scene, fallbackImage, className, minHeight, onLoad }) => {
   const [loaded, setLoaded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -50,7 +52,7 @@ export const SplineScene: React.FC<SplineSceneProps> = ({ scene, fallbackImage, 
   }
 
   return (
-    <div className={`relative w-full h-full min-h-[300px] ${className || ''}`}>
+    <div className={`relative w-full h-full ${minHeight || 'min-h-[300px]'} ${className || ''}`}>
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-transparent z-10">
           <Loader2 size={32} className="animate-spin text-marine-400 opacity-70" />
@@ -64,7 +66,10 @@ export const SplineScene: React.FC<SplineSceneProps> = ({ scene, fallbackImage, 
         >
           <Spline 
             scene={scene} 
-            onLoad={() => setLoaded(true)}
+            onLoad={(app) => {
+              setLoaded(true);
+              if (onLoad) onLoad(app);
+            }}
           />
         </div>
       </Suspense>

@@ -114,4 +114,15 @@ app.use("/", communityInvitationsRoutes);
 app.use("/", communityStatsRoutes);
 app.use("/", notificationRoutes);
 
+app.post("/debug-log", (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  try {
+    fs.writeFileSync(path.join(__dirname, '../../debug.log'), JSON.stringify(req.body, null, 2) + '\n');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = app;
