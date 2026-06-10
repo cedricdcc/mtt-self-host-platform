@@ -61,3 +61,10 @@ export async function markNotificationAsRead(notificationId: number): Promise<{ 
 export async function markAllNotificationsAsRead(): Promise<{ success: boolean; count: number }> {
   return backendApi.put<{ success: boolean; count: number }>('/notifications/read-all', {});
 }
+
+/**
+ * Get details for a single notification
+ */
+export async function getNotification(notificationId: number): Promise<{ notification: Notification }> {
+  return backendApi.get<{ notification: Notification }>(`/notifications/${notificationId}`);
+}

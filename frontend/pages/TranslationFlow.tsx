@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { getNotification } from '../services/notification.api';
 import toast from 'react-hot-toast';
 import { Sparkles, Home, TrendingUp } from 'lucide-react';
 import FlowTermCard from '../components/FlowTermCard';
@@ -26,6 +27,7 @@ import { ApiCommunityGoal, ApiCommunityGoalProgress } from '../types';
 const TranslationFlow: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLanguage = searchParams.get('language') || undefined;
   const selectedSource = searchParams.get('source') || undefined;
@@ -33,6 +35,8 @@ const TranslationFlow: React.FC = () => {
 
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [currentTask, setCurrentTask] = useState<FlowTask | null>(null);
+  const [linkedNotification, setLinkedNotification] = useState<any | null>(null);
+  const clearingParamsRef = useRef(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [challenges, setChallenges] = useState<DailyChallenge[]>([]);
   const [dailyGoal, setDailyGoal] = useState<DailyGoal | null>(null);
@@ -48,14 +52,42 @@ const TranslationFlow: React.FC = () => {
   // Initialize flow session
   useEffect(() => {
     const initFlow = async () => {
+      // If we are already initialized and the URL param/hash was just cleared, skip this effect run.
+      if (clearingParamsRef.current) {
+        clearingParamsRef.current = false;
+        return;
+      }
+
       try {
         setIsLoading(true);
 
-        // Start session and get languages in parallel
-        const [sessionData, languagesData] = await Promise.all([
+        // Parse notification ID from hash
+        let notificationId: number | null = null;
+        if (location.hash && location.hash.startsWith('#notification-')) {
+          const idStr = location.hash.replace('#notification-', '');
+          const idVal = parseInt(idStr, 10);
+          if (!isNaN(idVal)) {
+            notificationId = idVal;
+          }
+        }
+
+        // Fetch session data, languages, and notification (if exists) in parallel
+        const promises: Promise<any>[] = [
           startFlowSession(selectedLanguage, selectedSource),
           getAvailableLanguages(),
-        ]);
+        ];
+        
+        if (notificationId) {
+          promises.push(getNotification(notificationId).catch(err => {
+            console.error('Failed to fetch linked notification:', err);
+            return null;
+          }));
+        }
+
+        const results = await Promise.all(promises);
+        const sessionData = results[0];
+        const languagesData = results[1];
+        const notifResult = notificationId ? results[2] : null;
 
         setSessionId(sessionData.sessionId);
         setStats(sessionData.stats);
@@ -63,17 +95,39 @@ const TranslationFlow: React.FC = () => {
         setDailyGoal(sessionData.dailyGoal);
         setLanguages(languagesData.languages);
 
-        // If translation_id is provided (from notification), load that specific translation
-        if (translationIdParam) {
+        let activeNotification = null;
+        if (notifResult && notifResult.notification) {
+          activeNotification = notifResult.notification;
+          setLinkedNotification(notifResult.notification);
+        }
+
+        // Determine which translation to load
+        let targetTranslationId = translationIdParam ? parseInt(translationIdParam) : null;
+        if (!targetTranslationId && activeNotification) {
+          targetTranslationId = activeNotification.translation_id;
+        }
+
+        // If a specific translation needs loading (from notification or direct link)
+        if (targetTranslationId) {
           try {
-            const task = await getTranslationTask(parseInt(translationIdParam));
+            const task = await getTranslationTask(targetTranslationId);
+            
+            // Map taskType to type for compatibility
+            if (task && !task.type && (task as any).taskType) {
+              task.type = (task as any).taskType;
+            }
             setCurrentTask(task);
             
-            // Remove translation_id from URL after loading
-            setSearchParams({ 
-              ...(selectedLanguage && { language: selectedLanguage }),
-              ...(selectedSource && { source: selectedSource })
-            });
+            // Clean up the URL query param and hash after loading
+            clearingParamsRef.current = true;
+            navigate({
+              pathname: location.pathname,
+              search: new URLSearchParams({
+                ...(selectedLanguage && { language: selectedLanguage }),
+                ...(selectedSource && { source: selectedSource })
+              }).toString(),
+              hash: ''
+            }, { replace: true });
             
             // Fetch relevant community goal
             if (task && task.task) {
@@ -87,6 +141,17 @@ const TranslationFlow: React.FC = () => {
             const task = await getNextTask(selectedLanguage, selectedSource);
             setCurrentTask(task);
             
+            // Clear search params and hash on fallback
+            clearingParamsRef.current = true;
+            navigate({
+              pathname: location.pathname,
+              search: new URLSearchParams({
+                ...(selectedLanguage && { language: selectedLanguage }),
+                ...(selectedSource && { source: selectedSource })
+              }).toString(),
+              hash: ''
+            }, { replace: true });
+
             if (task && task.task) {
               await fetchRelevantGoal(task);
             }
@@ -112,7 +177,7 @@ const TranslationFlow: React.FC = () => {
     if (user) {
       initFlow();
     }
-  }, [user, selectedLanguage, selectedSource, translationIdParam]);
+  }, [user, selectedLanguage, selectedSource, translationIdParam, location.hash]);
 
   // Load next task
   const loadNextTask = async () => {
@@ -503,6 +568,7 @@ const TranslationFlow: React.FC = () => {
               onSkipTask={handleSkipTask}
               isSubmitting={isSubmitting}
               relevantGoal={relevantGoal}
+              linkedNotification={linkedNotification}
             />
           </div>
 

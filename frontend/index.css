@@ -38,3 +38,19 @@
   border-right-color: #3b82f6;
   pointer-events: none;
 }
+
+@keyframes notification-pulse {
+  0%, 100% {
+    border-color: #3b82f6; /* blue-500 */
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    border-color: #f59e0b; /* amber-500 */
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.notification-highlight {
+  animation: notification-pulse 2s infinite ease-in-out;
+  border-width: 2px !important;
+}

@@ -115,10 +115,40 @@ async function getUnreadCount(req, res) {
   }
 }
 
+/**
+ * Get a specific notification by ID
+ */
+async function getNotification(req, res) {
+  try {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const userId = req.session.user.id || req.session.user.user_id;
+    const notificationId = parseInt(req.params.notificationId);
+    
+    if (!notificationId) {
+      return res.status(400).json({ error: "Missing notificationId" });
+    }
+    
+    const notification = notificationService.getNotification(notificationId, userId);
+    
+    if (!notification) {
+      return res.status(404).json({ error: "Notification not found or not authorized" });
+    }
+    
+    res.json({ notification });
+  } catch (error) {
+    console.error("[Notifications] Get notification error:", error);
+    res.status(500).json({ error: error.message || "Failed to get notification" });
+  }
+}
+
 module.exports = {
   getUnreadNotifications,
   getAllNotifications,
   markAsRead,
   markAllAsRead,
-  getUnreadCount
+  getUnreadCount,
+  getNotification
 };

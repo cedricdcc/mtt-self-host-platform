@@ -293,6 +293,52 @@ function notifyDiscussionParticipants(translationId, termId, userId, message) {
   });
 }
 
+/**
+ * Get a specific notification by ID
+ * @param {number} notificationId - The notification ID
+ * @param {number|string} userIdentifier - User ID or username
+ * @returns {object|null} The notification object or null
+ */
+function getNotification(notificationId, userIdentifier) {
+  const db = getDatabase();
+  const { resolveUsernameToId } = require("../db/database");
+  
+  // Resolve user identifier to user_id
+  let userId = typeof userIdentifier === 'number' ? userIdentifier : parseInt(userIdentifier, 10);
+  if (isNaN(userId)) {
+    userId = resolveUsernameToId(userIdentifier);
+    if (!userId) {
+      return null;
+    }
+  }
+  
+  const stmt = db.prepare(`
+    SELECT n.*, 
+           u.username as created_by_username,
+           u.extra as created_by_extra
+    FROM notifications n
+    LEFT JOIN users u ON n.created_by_id = u.id
+    WHERE n.id = ? AND n.user_id = ?
+  `);
+  
+  const notification = stmt.get(notificationId, userId);
+  if (!notification) return null;
+  
+  // Parse extra field for display names
+  if (notification.created_by_extra) {
+    try {
+      const extra = JSON.parse(notification.created_by_extra);
+      notification.created_by_display_name = extra.display_name || notification.created_by_username;
+    } catch (e) {
+      notification.created_by_display_name = notification.created_by_username;
+    }
+  } else {
+    notification.created_by_display_name = notification.created_by_username;
+  }
+  
+  return notification;
+}
+
 module.exports = {
   createNotification,
   getUnreadNotifications,
@@ -302,5 +348,6 @@ module.exports = {
   getUnreadNotificationCount,
   addDiscussionParticipant,
   getDiscussionParticipants,
-  notifyDiscussionParticipants
+  notifyDiscussionParticipants,
+  getNotification
 };
