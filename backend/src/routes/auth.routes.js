@@ -206,10 +206,10 @@ router.get("/auth/orcid/callback", async (req, res) => {
         // Redirect based on whether user is new
         if (isNewUser) {
           console.log('[ORCID Callback] Session saved, redirecting new user to user-profile');
-          res.redirect(`${config.frontendUrl}/#profile`);
+          res.redirect(`${config.frontendUrl}/profile`);
         } else {
           console.log('[ORCID Callback] Session saved, redirecting existing user to dashboard');
-          res.redirect(`${config.frontendUrl}/#dashboard`);
+          res.redirect(`${config.frontendUrl}/dashboard`);
         }
       });
     } catch (dbError) {

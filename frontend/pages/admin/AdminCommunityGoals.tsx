@@ -49,10 +49,10 @@ const AdminCommunityGoals: React.FC = () => {
     fetchSources();
   }, []);
 
-  // Refetch goals when URL hash changes
+  // Refetch goals when URL path or hash changes
   useEffect(() => {
     fetchGoals();
-  }, [location.hash]);
+  }, [location.pathname, location.hash]);
 
   const fetchGoals = async () => {
     try {
