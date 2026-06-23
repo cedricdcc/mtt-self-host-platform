@@ -14,6 +14,9 @@ router.get("/notifications", apiLimiter, notificationController.getAllNotificati
 // Get unread count
 router.get("/notifications/count", apiLimiter, notificationController.getUnreadCount);
 
+// Get specific notification details
+router.get("/notifications/:notificationId", apiLimiter, notificationController.getNotification);
+
 // Mark notification as read
 router.put("/notifications/:notificationId/read", apiLimiter, notificationController.markAsRead);
 

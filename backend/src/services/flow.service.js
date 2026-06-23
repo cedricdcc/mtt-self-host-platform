@@ -820,6 +820,7 @@ function getTranslationTask(translationId, userIdentifier) {
   }
   
   return {
+    type: taskType,
     taskType,
     task: {
       ...translation,

@@ -16,6 +16,7 @@ interface FlowTermCardProps {
   onSkipTask: () => void;
   isSubmitting: boolean;
   relevantGoal?: { goal: ApiCommunityGoal; progress: ApiCommunityGoalProgress } | null;
+  linkedNotification?: any | null;
 }
 
 const FlowTermCard: React.FC<FlowTermCardProps> = ({
@@ -27,6 +28,7 @@ const FlowTermCard: React.FC<FlowTermCardProps> = ({
   onSkipTask,
   isSubmitting,
   relevantGoal,
+  linkedNotification = null,
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState(languages[0]?.code || 'nl');
   const [translationValue, setTranslationValue] = useState('');
@@ -65,10 +67,26 @@ const FlowTermCard: React.FC<FlowTermCardProps> = ({
 
   // Load history for review tasks
   useEffect(() => {
-    if ((taskType === 'review' || taskType === 'rework' || taskType === 'discussion') && task?.translation_id) {
+    if ((taskType === 'review' || taskType === 'rework' || taskType === 'discussion' || task?.status === 'approved' || task?.status === 'merged') && task?.translation_id) {
       loadHistory();
+      if (linkedNotification && linkedNotification.translation_id === task.translation_id) {
+        setShowHistory(true);
+      }
     }
-  }, [taskType, task]);
+  }, [taskType, task, linkedNotification]);
+
+  // Scroll matched notification entry into view
+  useEffect(() => {
+    if (showHistory && linkedNotification && history.length > 0) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById('highlighted-history-entry');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [showHistory, history, linkedNotification]);
 
   const loadHistory = async () => {
     if (!task?.translation_id) return;
@@ -148,10 +166,24 @@ const FlowTermCard: React.FC<FlowTermCardProps> = ({
       extra.translation_value ||          // status_changed, approved, rejected, discussion (new)
       entry.current_translation_value;    // fallback: current value from backend
 
+    const isMatched = linkedNotification && 
+      linkedNotification.created_by_id === entry.user_id && 
+      (
+        (linkedNotification.type === 'discussion_reply' && entry.action === 'translation_discussion') ||
+        (linkedNotification.type === 'translation_approved' && (entry.action === 'translation_approved' || entry.action === 'translation_status_changed')) ||
+        (linkedNotification.type === 'translation_rejected' && (entry.action === 'translation_rejected' || entry.action === 'translation_status_changed'))
+      ) &&
+      Math.abs(new Date(linkedNotification.created_at).getTime() - new Date(entry.created_at).getTime()) < 5000;
+
     return (
       <div
         key={entry.id}
-        className="bg-white dark:bg-slate-800 rounded-lg p-3 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow"
+        id={isMatched ? "highlighted-history-entry" : undefined}
+        className={`bg-white dark:bg-slate-800 rounded-lg p-3 border shadow-sm hover:shadow-md transition-shadow ${
+          isMatched 
+            ? 'notification-highlight border-blue-500 dark:border-blue-500' 
+            : 'border-slate-200 dark:border-slate-700'
+        }`}
       >
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5 text-slate-600 dark:text-slate-400">
@@ -449,6 +481,8 @@ Original Text (${task.field_uri || 'field'}): "${task.original_value}"`;
     }
   };
 
+  const isCompleted = task?.status === 'approved' || task?.status === 'merged';
+
   const labelField = getTermField('label', 'prefLabel');
   const refField = getTermField('reference', 'definition');
   
@@ -506,6 +540,28 @@ Original Text (${task.field_uri || 'field'}): "${task.original_value}"`;
       </div>
 
       <div className="p-4 md:p-8">
+        {/* Completed Task Alert Banner */}
+        {isCompleted && (
+          <div className="mb-6 p-4 rounded-xl border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-bold text-base">Translation Completed</h4>
+                <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  This translation has already been {task.status.toLowerCase()} and is closed for reviews.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onSkipTask}
+              className="flex-shrink-0 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+            >
+              <SkipForward className="w-4 h-4" />
+              Go to Next Task
+            </button>
+          </div>
+        )}
+
         {/* Context: Definition */}
         <div className="mb-8">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -554,7 +610,47 @@ Original Text (${task.field_uri || 'field'}): "${task.original_value}"`;
         <div className="border-t border-slate-100 dark:border-slate-700 my-8"></div>
 
         {/* Action Area */}
-        {taskType === 'review' && (
+        {isCompleted && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+            <div className="flex items-start gap-4">
+              <div className="flex-grow">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Completed Translation ({task.language?.toUpperCase()})
+                </label>
+                <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-lg text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-900/5 overflow-wrap-anywhere">
+                  {task.value}
+                </div>
+                {task.created_by && (
+                  <div className="mt-2 text-xs text-slate-400 flex items-center gap-1">
+                    <span>Submitted by</span>
+                    <span className="font-medium text-slate-600 dark:text-slate-300 truncate">{task.created_by}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Translation History - Shows list */}
+            {history.length > 0 && (
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="flex items-center justify-between text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <div className="flex items-center gap-2">
+                    <Clock size={18} className="text-marine-500" />
+                    <span>Translation History</span>
+                    <span className="ml-1 px-2 py-0.5 bg-marine-100 dark:bg-marine-900/40 text-marine-700 dark:text-marine-300 rounded-full text-xs font-bold">
+                      {history.length}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="mt-4 space-y-3">
+                  {history.map((entry) => renderHistoryEntry(entry))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isCompleted && taskType === 'review' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                  <div className="flex items-start gap-4">
                      <div className="flex-grow">

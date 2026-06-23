@@ -71,7 +71,7 @@ const Notifications: React.FC = () => {
 
       // Navigate to the translation
       if (notification.translation_id) {
-        navigate(`/flow?translation_id=${notification.translation_id}`);
+        navigate(`/flow?translation_id=${notification.translation_id}#notification-${notification.id}`);
       }
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
