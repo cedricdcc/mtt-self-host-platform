@@ -717,3 +717,21 @@ CREATE TABLE community_reports (
 CREATE INDEX idx_community_reports_community ON community_reports(community_id);
 CREATE INDEX idx_community_reports_status ON community_reports(status);
 CREATE INDEX idx_community_reports_reported_by ON community_reports(reported_by_id);
+
+-- Vocabulary Requests
+-- Allows users to request new vocabularies and LDES feeds to be imported
+CREATE TABLE vocabulary_requests (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    title           TEXT NOT NULL,
+    source_uri      TEXT NOT NULL,
+    description     TEXT,
+    status          TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'completed')),
+    requested_by_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    admin_notes     TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_vocabulary_requests_status ON vocabulary_requests(status);
+CREATE INDEX idx_vocabulary_requests_user ON vocabulary_requests(requested_by_id);
+

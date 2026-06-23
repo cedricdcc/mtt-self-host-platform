@@ -487,6 +487,28 @@ class ApiService {
   public async previewRuleChange(ruleName: string, newValue: number, sampleSize: number = 10): Promise<any> {
     return this.post('/admin/reputation-rules/preview', { ruleName, newValue, sampleSize });
   }
+
+  // --- Vocabulary Requests ---
+  public async getVocabularyRequests(): Promise<any[]> {
+    return this.get<any[]>('/vocabulary-requests');
+  }
+
+  public async createVocabularyRequest(data: { title: string; sourceUri: string; description?: string }): Promise<any> {
+    return this.post<any>('/vocabulary-requests', data);
+  }
+
+  public async updateVocabularyRequestStatus(id: number, data: { status: string; adminNotes?: string }): Promise<any> {
+    return this.patch<any>(`/vocabulary-requests/${id}`, data);
+  }
+
+  // --- User Discussions & Drafts ---
+  public async getUserDiscussions(): Promise<any[]> {
+    return this.get<any[]>('/user/discussions');
+  }
+
+  public async getUserDrafts(): Promise<any[]> {
+    return this.get<any[]>('/user/drafts');
+  }
 }
 
 // Export pre-configured instances

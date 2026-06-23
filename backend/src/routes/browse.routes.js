@@ -119,17 +119,35 @@ router.get("/browse", apiLimiter, (req, res) => {
     
     // If there's a search query, use FTS
     if (searchQuery) {
-      // Search in translations FTS table and term_fields.original_value using LIKE
-      // translations_fts contains translation data (rowid = translation.id)
-      whereClauses.push(`(
-        tr.id IN (
-          SELECT rowid FROM translations_fts WHERE translations_fts MATCH ?
-        ) OR 
-        tf.original_value LIKE ?
-        OR t.uri LIKE ?
-      )`);
-      // For FTS, use the query as-is; for LIKE, wrap in wildcards
-      params.push(searchQuery, `%${searchQuery}%`, `%${searchQuery}%`);
+      // Clean query for FTS5 to avoid syntax errors (like near "/")
+      // Keep only alphanumeric characters, spaces, and wildcard '*'
+      // Strip * unless it is at the end of a word (valid FTS5 prefix search)
+      const cleanedFtsQuery = searchQuery
+        .replace(/[^\w\s*]/g, ' ')
+        .replace(/\*(?!\s|$)/g, ' ') // remove * if not followed by space or end of string
+        .replace(/(?<!\w)\*/g, ' ')  // remove * if not preceded by a word character
+        .trim()
+        .replace(/\s+/g, ' ');
+
+      if (cleanedFtsQuery) {
+        // Search in translations FTS table and term_fields.original_value using LIKE
+        // translations_fts contains translation data (rowid = translation.id)
+        whereClauses.push(`(
+          tr.id IN (
+            SELECT rowid FROM translations_fts WHERE translations_fts MATCH ?
+          ) OR 
+          tf.original_value LIKE ?
+          OR t.uri LIKE ?
+        )`);
+        params.push(cleanedFtsQuery, `%${searchQuery}%`, `%${searchQuery}%`);
+      } else {
+        // Fallback to LIKE search only if FTS query is empty after cleaning
+        whereClauses.push(`(
+          tf.original_value LIKE ?
+          OR t.uri LIKE ?
+        )`);
+        params.push(`%${searchQuery}%`, `%${searchQuery}%`);
+      }
     }
     
     // Apply facet filters

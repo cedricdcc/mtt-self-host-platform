@@ -168,12 +168,12 @@ const Reputation: React.FC = () => {
                         <span><strong>Gold Shield</strong></span>
                     </li>
                     <li className="flex items-start gap-2 text-slate-700 dark:text-slate-300">
-                        <span className="text-green-600 font-bold">Immune</span>
-                        <span>to rejection penalties</span>
+                        <CheckCard />
+                        <span>Rejection penalty capped at <strong>-2</strong></span>
                     </li>
                      <li className="flex items-start gap-2 text-slate-700 dark:text-slate-300">
-                        <span className="text-green-600 font-bold">Immune</span>
-                        <span>to false rejection penalty</span>
+                        <span className="font-mono text-amber-500 font-bold">-2</span>
+                        <span>False Rejection Penalty</span>
                     </li>
                 </ul>
             </div>

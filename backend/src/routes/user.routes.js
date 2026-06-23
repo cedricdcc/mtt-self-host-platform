@@ -421,6 +421,96 @@ router.delete("/user/preferences/openrouter-key", userPreferencesLimiter, requir
 });
 
 /**
+ * @openapi
+ * /api/user/discussions:
+ *   get:
+ *     summary: Get term discussions the user is involved in
+ *     responses:
+ *       200:
+ *         description: Returns list of user's active discussions
+ *       401:
+ *         description: Not authenticated
+ */
+router.get("/user/discussions", userPreferencesLimiter, requireAuth, (req, res) => {
+  try {
+    const db = getDatabase();
+    const userId = req.session.user.id || req.session.user.user_id;
+    
+    // Fetch term discussions the user is involved in
+    const discussions = db.prepare(`
+      SELECT DISTINCT
+        td.id,
+        td.term_id,
+        td.title,
+        td.status,
+        td.created_at,
+        td.updated_at,
+        td.started_by_id,
+        u.username as started_by,
+        t.uri as term_uri,
+        (SELECT original_value FROM term_fields WHERE term_id = td.term_id AND (field_uri LIKE '%prefLabel%' OR field_uri LIKE '%label%') LIMIT 1) as term_label,
+        (SELECT COUNT(*) FROM term_discussion_messages WHERE discussion_id = td.id) as message_count
+      FROM term_discussions td
+      JOIN term_discussion_participants tdp ON td.id = tdp.discussion_id
+      LEFT JOIN users u ON td.started_by_id = u.id
+      LEFT JOIN terms t ON td.term_id = t.id
+      WHERE tdp.user_id = ?
+      ORDER BY td.updated_at DESC
+    `).all(userId);
+    
+    res.json(discussions);
+  } catch (error) {
+    console.error('[User Discussions] Error:', error);
+    res.status(500).json({ error: 'Failed to load user discussions' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/user/drafts:
+ *   get:
+ *     summary: Get drafts submitted by the user
+ *     responses:
+ *       200:
+ *         description: Returns list of user's draft translations
+ *       401:
+ *         description: Not authenticated
+ */
+router.get("/user/drafts", userPreferencesLimiter, requireAuth, (req, res) => {
+  try {
+    const db = getDatabase();
+    const userId = req.session.user.id || req.session.user.user_id;
+    
+    // Fetch translations where status = 'draft' created by the user
+    const drafts = db.prepare(`
+      SELECT 
+        tr.id,
+        tr.term_field_id,
+        tr.language,
+        tr.value,
+        tr.status,
+        tr.created_at,
+        tr.updated_at,
+        tf.original_value as field_original_value,
+        tf.field_uri,
+        t.id as term_id,
+        t.uri as term_uri,
+        (SELECT original_value FROM term_fields WHERE term_id = t.id AND (field_uri LIKE '%prefLabel%' OR field_uri LIKE '%label%') LIMIT 1) as term_label
+      FROM translations tr
+      JOIN term_fields tf ON tr.term_field_id = tf.id
+      JOIN terms t ON tf.term_id = t.id
+      WHERE tr.created_by_id = ? AND tr.status = 'draft'
+      ORDER BY tr.updated_at DESC
+    `).all(userId);
+    
+    res.json(drafts);
+  } catch (error) {
+    console.error('[User Drafts] Error:', error);
+    res.status(500).json({ error: 'Failed to load user drafts' });
+  }
+});
+
+/**
  * Get a specific user by ID
  * Note: This route is intentionally placed after more specific routes (like /user/preferences)
  * to prevent the :id parameter from matching literal path segments.

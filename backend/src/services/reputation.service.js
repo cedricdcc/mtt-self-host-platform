@@ -158,8 +158,8 @@ function calculateRawRejectionPenalty(recentRejectionCount) {
  */
 function applyReputationShield(rawPenalty, reputation) {
   if (reputation >= REPUTATION_TIERS.VETERAN) {
-    // Veterans are immune to rejection penalties
-    return 0;
+    // Veterans rejection penalty capped at -2
+    return Math.max(rawPenalty, -2);
   } else if (reputation >= REPUTATION_TIERS.TRUSTED) {
     // Trusted users capped at -5
     return Math.max(rawPenalty, -5);
@@ -203,8 +203,8 @@ function calculateFalseRejectionPenalty(userIdentifier) {
 
   let shieldedPenalty;
   if (reputation >= REPUTATION_TIERS.VETERAN) {
-    // Veterans are immune to false rejection penalties
-    shieldedPenalty = 0;
+    // Veterans false rejection penalty capped at -2
+    shieldedPenalty = -2;
   } else if (reputation >= REPUTATION_TIERS.TRUSTED) {
     // Trusted users get -5 instead of -10
     shieldedPenalty = -5;
@@ -442,8 +442,7 @@ function applyFalseRejectionPenalty(userIdentifier, translationId) {
  * @returns {boolean} True if user is immune
  */
 function isImmuneToRejectionPenalty(userIdentifier) {
-  const reputation = getUserReputation(userIdentifier);
-  return reputation >= REPUTATION_TIERS.VETERAN;
+  return false;
 }
 
 /**
@@ -478,8 +477,8 @@ function getReputationTierInfo(userIdentifier) {
   let immuneToRejection;
 
   if (reputation >= REPUTATION_TIERS.VETERAN) {
-    maxPenalty = null;
-    immuneToRejection = true;
+    maxPenalty = -2;
+    immuneToRejection = false;
   } else if (reputation >= REPUTATION_TIERS.TRUSTED) {
     maxPenalty = -5;
     immuneToRejection = false;
