@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Users, Database, AlertTriangle, TrendingUp, Activity, PieChart, DownloadCloud, Layers, Target } from 'lucide-react';
+import { ShieldCheck, Users, Database, AlertTriangle, TrendingUp, Activity, PieChart, DownloadCloud, Layers, Target, Mail } from 'lucide-react';
 import { backendApi } from '../services/api';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -518,6 +518,28 @@ const AdminDashboard: React.FC = () => {
             </div>
             <Link to="/admin/reputation-rules" className="inline-block px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
                 Manage Rules &rarr;
+            </Link>
+        </div>
+
+        {/* Mailing Service Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col justify-between">
+            <div>
+                <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                        <Mail className="text-cyan-600 dark:text-cyan-400" size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-lg">
+                            Mailing Service
+                        </h3>
+                    </div>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Monitor outgoing email queue, retry failed deliveries, and send system announcements.
+                </p>
+            </div>
+            <Link to="/admin/mail" className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
+                Manage Mail &rarr;
             </Link>
         </div>
       </div>

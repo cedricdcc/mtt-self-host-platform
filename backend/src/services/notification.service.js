@@ -1,6 +1,103 @@
 // Notification service - handles notification creation and management
 
 const { getDatabase } = require("../db/database");
+const config = require("../config");
+
+/**
+ * Helper to trigger email notifications based on database notifications
+ */
+function triggerEmailForNotification(notificationId) {
+  const db = getDatabase();
+  
+  // Get notification details along with user preferences and email
+  const notification = db.prepare(`
+    SELECT n.*, 
+           u.email, 
+           u.username,
+           up.email_on_discussion, 
+           up.email_on_status_change,
+           (SELECT original_value FROM term_fields WHERE term_id = n.term_id LIMIT 1) as term_label,
+           (SELECT value FROM translations WHERE id = n.translation_id) as translation_value,
+           (SELECT rejection_reason FROM translations WHERE id = n.translation_id) as rejection_reason
+    FROM notifications n
+    JOIN users u ON n.user_id = u.id
+    LEFT JOIN user_preferences up ON u.id = up.user_id
+    WHERE n.id = ?
+  `).get(notificationId);
+
+  if (!notification || !notification.email) {
+    return; // No email configured or user not found
+  }
+
+  const {
+    type,
+    term_label: termLabel,
+    translation_value: translationValue,
+    rejection_reason: rejectionReason,
+    message,
+    link,
+    email_on_discussion: emailOnDiscussion,
+    email_on_status_change: emailOnStatusChange
+  } = notification;
+
+  // Resolve absolute link for the email client
+  const absoluteLink = `${config.frontendUrl}${link}`;
+  const { queueMail } = require("./mail.service");
+
+  if (type === 'discussion_reply') {
+    // Default to enabled (1) if preference is null
+    if (emailOnDiscussion !== 0) {
+      const author = db.prepare('SELECT username, extra FROM users WHERE id = ?').get(notification.created_by_id);
+      let displayName = author?.username || 'Someone';
+      if (author?.extra) {
+        try {
+          const extra = JSON.parse(author.extra);
+          displayName = extra.name || extra.display_name || author.username;
+        } catch (e) {}
+      }
+
+      queueMail(
+        notification.email, 
+        `New reply in translation discussion: ${termLabel || 'Discussion'}`, 
+        'discussion-reply', 
+        {
+          displayName,
+          termLabel: termLabel || 'Concept',
+          message,
+          link: absoluteLink
+        }
+      );
+    }
+  } else if (type === 'translation_approved') {
+    if (emailOnStatusChange !== 0) {
+      queueMail(
+        notification.email,
+        `Translation Suggestion Approved: ${termLabel || 'Concept'}`,
+        'translation-approved',
+        {
+          termLabel: termLabel || 'Concept',
+          value: translationValue || '',
+          reputationChange: 5, // Default reputation bump
+          link: absoluteLink
+        }
+      );
+    }
+  } else if (type === 'translation_rejected') {
+    if (emailOnStatusChange !== 0) {
+      queueMail(
+        notification.email,
+        `Translation Suggestion Update: ${termLabel || 'Concept'}`,
+        'translation-rejected',
+        {
+          termLabel: termLabel || 'Concept',
+          value: translationValue || '',
+          reason: rejectionReason || 'Does not meet taxonomy requirements',
+          link: absoluteLink
+        }
+      );
+    }
+  }
+}
 
 /**
  * Create a notification for a user
@@ -22,7 +119,16 @@ function createNotification(params) {
   `);
   
   const result = stmt.run(userId, type, translationId, termId, message, link, createdById);
-  return result.lastInsertRowid;
+  const notificationId = result.lastInsertRowid;
+
+  // Trigger email dispatch asynchronously
+  try {
+    triggerEmailForNotification(notificationId);
+  } catch (err) {
+    console.error('[Notification Service] Failed to trigger email notification:', err.message);
+  }
+
+  return notificationId;
 }
 
 /**

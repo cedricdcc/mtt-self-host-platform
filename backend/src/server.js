@@ -30,6 +30,10 @@ taskDispatcher.startTaskDispatcher(60000);
 // Process any pending tasks on startup
 taskDispatcher.processPendingTasks();
 
+// Start the mail queue worker (checks every 30 minutes)
+const mailService = require("./services/mail.service");
+mailService.startMailQueueWorker();
+
 // Start the server
 app.listen(config.port, () => {
   console.log(`Server listening on port ${config.port}`);

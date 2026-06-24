@@ -89,6 +89,30 @@ router.get("/auth/orcid/callback", async (req, res) => {
     const { orcid, name, access_token, refresh_token, expires_in } = tokenResponse.data;
     console.log('[ORCID Callback] Token exchange successful, ORCID:', orcid);
 
+    // Fetch email from ORCID API using the access token
+    let orcidEmail = null;
+    try {
+      console.log('[ORCID Callback] Fetching email from ORCID for ORCID:', orcid);
+      const emailResponse = await axios.get(
+        `https://pub.orcid.org/v3.0/${orcid}/emails`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${access_token}`
+          }
+        }
+      );
+      if (emailResponse.data && emailResponse.data.email && emailResponse.data.email.length > 0) {
+        const primaryEmailObj = emailResponse.data.email.find(e => e.primary) || emailResponse.data.email[0];
+        orcidEmail = primaryEmailObj.email;
+        console.log('[ORCID Callback] Fetched email:', orcidEmail);
+      } else {
+        console.log('[ORCID Callback] No email found in ORCID record.');
+      }
+    } catch (err) {
+      console.warn('[ORCID Callback] Failed to fetch email from ORCID API:', err.response?.data || err.message);
+    }
+
     // Check if user exists in database and handle registration
     const db = getDatabase();
     
@@ -125,8 +149,8 @@ router.get("/auth/orcid/callback", async (req, res) => {
         });
         
         const userResult = db.prepare(
-          'INSERT INTO users (username, reputation, extra) VALUES (?, ?, ?)'
-        ).run(orcid, 0, extra);
+          'INSERT INTO users (username, reputation, extra, email) VALUES (?, ?, ?, ?)'
+        ).run(orcid, 0, extra, orcidEmail);
         
         userId = userResult.lastInsertRowid;
         username = orcid;
@@ -144,12 +168,13 @@ router.get("/auth/orcid/callback", async (req, res) => {
         
         // Create auth_provider entry
         db.prepare(
-          'INSERT INTO auth_providers (user_id, provider, provider_id, name, access_token, refresh_token, token_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          'INSERT INTO auth_providers (user_id, provider, provider_id, name, email, access_token, refresh_token, token_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         ).run(
           userId,
           'orcid',
           orcid,
           name,
+          orcidEmail,
           access_token,
           refresh_token,
           datetime.add(datetime.now(), expires_in, 'second')
@@ -169,16 +194,22 @@ router.get("/auth/orcid/callback", async (req, res) => {
           return res.redirect(`${config.frontendUrl}/login?error=user_banned&reason=${encodeURIComponent(userExtra.ban_reason || 'No reason provided')}`);
         }
         
-        // Update auth_provider tokens
+        // Update auth_provider tokens and email
         db.prepare(
-          'UPDATE auth_providers SET access_token = ?, refresh_token = ?, token_expires_at = ?, updated_at = CURRENT_TIMESTAMP WHERE provider = ? AND provider_id = ?'
+          'UPDATE auth_providers SET access_token = ?, refresh_token = ?, token_expires_at = ?, email = ?, updated_at = CURRENT_TIMESTAMP WHERE provider = ? AND provider_id = ?'
         ).run(
           access_token,
           refresh_token,
           datetime.add(datetime.now(), expires_in, 'second'),
+          orcidEmail || existingAuth.email,
           'orcid',
           orcid
         );
+
+        // Update users table email if it has changed or is unset
+        if (orcidEmail && (!existingAuth.email || existingAuth.email !== orcidEmail)) {
+          db.prepare('UPDATE users SET email = ? WHERE id = ?').run(orcidEmail, userId);
+        }
       }
       
       // Store user info in session with both user_id and username for backward compatibility
@@ -188,6 +219,7 @@ router.get("/auth/orcid/callback", async (req, res) => {
         username: username,
         orcid, 
         name: name || userExtra.name, 
+        email: orcidEmail || existingAuth?.email || null,
         access_token, 
         refresh_token, 
         expires_at: datetime.unix(datetime.add(datetime.now(), expires_in, 'second')) * 1000,

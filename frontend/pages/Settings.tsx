@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Globe, Save, Shield, Settings as SettingsIcon, Plus, X, ChevronUp, ChevronDown, Search, Key, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Globe, Save, Shield, Settings as SettingsIcon, Plus, X, ChevronUp, ChevronDown, Search, Key, Eye, EyeOff, Sparkles, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { CONFIG } from '../config';
 import { backendApi } from '../services/api';
@@ -35,6 +35,69 @@ const Settings: React.FC = () => {
   const [isLoadingApiKey, setIsLoadingApiKey] = useState(true);
   const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
+
+  // Email notification preferences states
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [emailOnDiscussion, setEmailOnDiscussion] = useState(true);
+  const [emailOnStatusChange, setEmailOnStatusChange] = useState(true);
+  const [emailDigestFrequency, setEmailDigestFrequency] = useState('none');
+  const [isLoadingEmailPrefs, setIsLoadingEmailPrefs] = useState(true);
+  const [isSavingEmailPrefs, setIsSavingEmailPrefs] = useState(false);
+  const [emailPrefsChanged, setEmailPrefsChanged] = useState(false);
+
+  // Load email preferences
+  useEffect(() => {
+    const loadEmailPreferences = async () => {
+      try {
+        const response = await fetch(`${CONFIG.API_URL}/user/preferences/email`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setUserEmail(data.email);
+          setEmailOnDiscussion(data.emailOnDiscussion);
+          setEmailOnStatusChange(data.emailOnStatusChange);
+          setEmailDigestFrequency(data.emailDigestFrequency);
+        }
+      } catch (error) {
+        console.error('Failed to load email preferences:', error);
+      } finally {
+        setIsLoadingEmailPrefs(false);
+      }
+    };
+
+    loadEmailPreferences();
+  }, []);
+
+  const handleSaveEmailPrefs = async () => {
+    setIsSavingEmailPrefs(true);
+    try {
+      const response = await fetch(`${CONFIG.API_URL}/user/preferences/email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          emailOnDiscussion,
+          emailOnStatusChange,
+          emailDigestFrequency
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Email preferences saved successfully!');
+        setEmailPrefsChanged(false);
+      } else {
+        throw new Error('Failed to save email preferences');
+      }
+    } catch (error) {
+      console.error('Error saving email preferences:', error);
+      toast.error('Failed to save email preferences. Please try again.');
+    } finally {
+      setIsSavingEmailPrefs(false);
+    }
+  };
 
   // Load available languages from API
   useEffect(() => {
@@ -394,6 +457,141 @@ const Settings: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Email Preferences */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-700 p-8 mt-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-marine-100 dark:bg-marine-900/30 rounded-lg">
+            <Mail className="text-marine-600 dark:text-marine-400" size={24} />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Email Notification Settings</h2>
+            <p className="text-slate-600 dark:text-slate-400">
+              Configure how and when you receive email notifications
+            </p>
+          </div>
+        </div>
+
+        {isLoadingEmailPrefs ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-marine-600"></div>
+            <span className="ml-3 text-slate-600 dark:text-slate-400">Loading email preferences...</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Display user's email */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-600">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Notification Email</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white mt-0.5 font-mono">
+                    {userEmail || 'No email associated with your ORCID account.'}
+                  </p>
+                </div>
+                {!userEmail && (
+                  <span className="text-xs px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 rounded-full font-semibold">
+                    No Email Found
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                This email is retrieved automatically from your ORCID profile during authentication.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Toggle for Discussion Replies */}
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={emailOnDiscussion}
+                  onChange={(e) => {
+                    setEmailOnDiscussion(e.target.checked);
+                    setEmailPrefsChanged(true);
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-marine-600 focus:ring-marine-500"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-white group-hover:text-marine-600 dark:group-hover:text-marine-400 transition-colors">
+                    Discussion Replies
+                  </span>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                    Receive an email when someone replies to a discussion thread you participate in.
+                  </p>
+                </div>
+              </label>
+
+              {/* Toggle for Translation Status Changes */}
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={emailOnStatusChange}
+                  onChange={(e) => {
+                    setEmailOnStatusChange(e.target.checked);
+                    setEmailPrefsChanged(true);
+                  }}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-marine-600 focus:ring-marine-500"
+                />
+                <div>
+                  <span className="font-semibold text-slate-900 dark:text-white group-hover:text-marine-600 dark:group-hover:text-marine-400 transition-colors">
+                    Translation Status Changes
+                  </span>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                    Receive an email when a translation you suggested is approved or rejected.
+                  </p>
+                </div>
+              </label>
+
+              {/* Digest Select */}
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <label className="block text-sm font-semibold text-slate-900 dark:text-white">
+                  Email Digest Frequency
+                </label>
+                <select
+                  value={emailDigestFrequency}
+                  onChange={(e) => {
+                    setEmailDigestFrequency(e.target.value);
+                    setEmailPrefsChanged(true);
+                  }}
+                  className="max-w-xs w-full px-4 py-3 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-marine-500 focus:border-marine-500 text-slate-900 dark:text-white text-sm"
+                >
+                  <option value="none">No Digest Emails</option>
+                  <option value="daily">Daily Digest Summary</option>
+                  <option value="weekly">Weekly Digest Summary</option>
+                </select>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Receive a summary of recent translation goals and activities at the selected frequency.
+                </p>
+              </div>
+            </div>
+
+            {/* Save Preferences Button */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={handleSaveEmailPrefs}
+                disabled={isSavingEmailPrefs || !emailPrefsChanged}
+                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
+                  isSavingEmailPrefs || !emailPrefsChanged
+                    ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed'
+                    : 'bg-marine-600 hover:bg-marine-700 text-white shadow-sm hover:shadow active:scale-95'
+                }`}
+              >
+                {isSavingEmailPrefs ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save size={20} />
+                    Save Email Preferences
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* OpenRouter API Key Section */}
