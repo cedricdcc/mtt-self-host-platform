@@ -396,6 +396,97 @@ router.get("/admin/translations", requireAdmin, apiLimiter, (req, res) => {
  *       200:
  *         description: Translation status updated
  */
+router.get("/admin/translations/pending-consensus", requireAdmin, apiLimiter, (req, res) => {
+  const db = getDatabase();
+  try {
+    const pending = db.prepare(`
+      SELECT t.id, t.language, t.value, t.created_at, t.status, tf.field_uri, term.uri,
+             COALESCE(modified_user.username, created_user.username) as translator_username
+      FROM translations t
+      JOIN term_fields tf ON t.term_field_id = tf.id
+      JOIN terms term ON tf.term_id = term.id
+      LEFT JOIN users created_user ON t.created_by_id = created_user.id
+      LEFT JOIN users modified_user ON t.modified_by_id = modified_user.id
+      WHERE t.status IN ('review', 'discussion')
+      ORDER BY t.created_at ASC
+    `).all();
+
+    const result = pending.map(t => {
+      // Active translators in past 30 days
+      const activeTranslators = db.prepare(`
+        SELECT COUNT(DISTINCT COALESCE(modified_by_id, created_by_id)) as count
+        FROM translations
+        WHERE language = ? 
+          AND (created_at >= datetime('now', '-30 days') OR updated_at >= datetime('now', '-30 days'))
+          AND COALESCE(modified_by_id, created_by_id) IS NOT NULL
+      `).get(t.language).count;
+
+      let threshold = 1;
+      if (activeTranslators > 2 && activeTranslators <= 5) {
+        threshold = 2;
+      } else if (activeTranslators > 5) {
+        threshold = 3;
+      }
+
+      // Get reviews
+      const reviews = db.prepare(`
+        SELECT tr.action, tr.user_id, u.username, u.reputation, tr.created_at
+        FROM translation_reviews tr
+        JOIN users u ON tr.user_id = u.id
+        WHERE tr.translation_id = ?
+      `).all(t.id);
+
+      let approvalsWeight = 0;
+      let rejectionsWeight = 0;
+
+      const voteBreakdown = reviews.map(r => {
+        const weight = Math.min(4, 1 + Math.floor((r.reputation || 0) / 100));
+        if (r.action === 'approve') {
+          approvalsWeight += weight;
+        } else {
+          rejectionsWeight += weight;
+        }
+        return {
+          username: r.username,
+          action: r.action,
+          reputation: r.reputation || 0,
+          weight
+        };
+      });
+
+      // Calculate time remaining until 3 days limit
+      const createdMs = new Date(t.created_at + "Z").getTime(); // Ensure UTC parse
+      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+      const nowMs = Date.now();
+      const timeRemainingMs = Math.max(0, (createdMs + threeDaysMs) - nowMs);
+      const daysRemaining = timeRemainingMs / (24 * 60 * 60 * 1000);
+
+      return {
+        id: t.id,
+        language: t.language,
+        value: t.value,
+        created_at: t.created_at,
+        status: t.status,
+        field_uri: t.field_uri,
+        uri: t.uri,
+        translator_username: t.translator_username || 'Unknown',
+        activeTranslators,
+        threshold,
+        approvalsWeight,
+        rejectionsWeight,
+        netScore: approvalsWeight - rejectionsWeight,
+        daysRemaining,
+        reviews: voteBreakdown
+      };
+    });
+
+    res.json({ success: true, pending: result });
+  } catch (err) {
+    console.error('[Admin API] Error fetching pending consensus:', err);
+    res.status(500).json({ error: 'Failed to fetch pending consensus reviews' });
+  }
+});
+
 router.put("/admin/translations/:id/status", requireAdmin, apiLimiter, (req, res) => {
   try {
     const translationId = parseInt(req.params.id);
