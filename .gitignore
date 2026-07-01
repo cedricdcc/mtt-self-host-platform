@@ -50,6 +50,8 @@ backend/gitea_token.secret
 data/
 
 #venv
+.venv/
+venv/
 
 /scratch
 

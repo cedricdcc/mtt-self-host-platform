@@ -627,53 +627,8 @@ def create_or_update_ldes(source_id, db_path, prefix_uri="https://this_should_be
     print(f"Prefix URI: {prefix_uri}")
     
     # Step 1: Detect existing LDES feed
-    exists, latest_file = detect_existing_ldes(source_id)
-    
-    latest_modified_in_ldes = None
-    
-    if exists and latest_file:
-        print(f"Existing LDES feed found at {latest_file}")
-        
-        # Step 2: Get latest modified date from existing fragment
-        latest_modified_in_ldes = get_latest_modified_from_fragment(latest_file)
-        
-        if latest_modified_in_ldes:
-            print(f"Latest modified date in LDES: {latest_modified_in_ldes}")
-            
-            # Step 3: Query for new translations
-            # From latest_modified to now
-            start_date = latest_modified_in_ldes
-            end_date = datetime.now()
-            
-            print(f"Querying for translations from {start_date} to {end_date}")
-            translations = query_translations_for_ldes(db_path, source_id, start_date, end_date)
-            
-            # Filter out translations that are not strictly newer than latest_modified_in_ldes
-            # Make latest_modified_in_ldes timezone-naive for comparison
-            latest_modified_naive = latest_modified_in_ldes.replace(tzinfo=None) if latest_modified_in_ldes.tzinfo else latest_modified_in_ldes
-            
-            new_translations = [
-                t for t in translations 
-                if parse_datetime(t['event_at']) > latest_modified_naive
-            ]
-            
-            if not new_translations:
-                print("No new translations found. Skipping fragment creation.")
-                return {
-                    'status': 'skipped',
-                    'message': 'No new translations to publish',
-                    'fragment': None
-                }
-            
-            translations = new_translations
-        else:
-            print("Could not determine latest modified date. Querying all translations.")
-            translations = query_translations_for_ldes(db_path, source_id)
-    else:
-        print("No existing LDES feed found. Creating first fragment.")
-        
-        # Step 4: Query all translations for first-time creation
-        translations = query_translations_for_ldes(db_path, source_id)
+    # Always query all translations with status='approved' (no date filtering in query)
+    translations = query_translations_for_ldes(db_path, source_id)
     
     if not translations:
         print("No translations with status='approved' found.")
@@ -682,6 +637,23 @@ def create_or_update_ldes(source_id, db_path, prefix_uri="https://this_should_be
             'message': 'No translations with status=approved found',
             'fragment': None
         }
+        
+    print(f"Found {len(translations)} approved translation(s) in database")
+    
+    # Get previous fragment info to ensure monotonic order and adjust older timestamps
+    prev_fragment_timestamp, prev_fragment_datetime = get_previous_fragment(source_id)
+    
+    if prev_fragment_datetime:
+        prev_naive = prev_fragment_datetime.replace(tzinfo=None) if prev_fragment_datetime.tzinfo else prev_fragment_datetime
+        for t in translations:
+            t_dt = parse_datetime(t['event_at'])
+            t_naive = t_dt.replace(tzinfo=None) if t_dt.tzinfo else t_dt
+            if t_naive <= prev_naive:
+                # Adjust event_at to be slightly newer than the previous fragment
+                adjusted_dt = prev_naive + timedelta(seconds=1)
+                t['event_at'] = adjusted_dt.strftime("%Y-%m-%d %H:%M:%S")
+                # Also adjust updated_at, modified_at, created_at to avoid mismatches
+                t['updated_at'] = t['event_at']
     
     print(f"Found {len(translations)} translation(s) for LDES")
     
