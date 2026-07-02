@@ -23,6 +23,7 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
     const saved = localStorage.getItem('communityGoalsMinimized');
     return saved === 'true';
   });
+  const [showBubble, setShowBubble] = useState(false);
 
   const [splineApp, setSplineApp] = useState<any>(null);
   const [fishObject, setFishObject] = useState<any>(null);
@@ -189,30 +190,11 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
       const dx = targetX - posRef.current.x;
       const dy = targetY - posRef.current.y;
 
-      // Always follow when user is on the page for > 2s, and not hovered
-      if (!isHovered && pageDelayPassed) {
-        // Accelerating speed factor: starts slow, increases when mouse stops moving
-        const timeSinceLastMove = Date.now() - lastMovedRef.current;
-        const baseSpeed = 0.015;
-        const maxSpeed = 0.20;
-        const accelerationTime = 1500; // takes 1.5s to reach max speed
+      // Always follow physical position removed to make widget stationary
+      // posRef.current.x += dx * speedFactor;
+      // posRef.current.y += dy * speedFactor;
+      // setPosition({ x: clampedX, y: clampedY });
 
-        const speedFactor = Math.min(
-          maxSpeed,
-          baseSpeed + (maxSpeed - baseSpeed) * Math.min(1, timeSinceLastMove / accelerationTime)
-        );
-
-        posRef.current.x += dx * speedFactor;
-        posRef.current.y += dy * speedFactor;
-
-        // Keep fish fully on screen (prevent reaching the navbar at the top)
-        const padding = 50;
-        const navbarHeight = 80;
-        const clampedX = Math.max(padding, Math.min(window.innerWidth - padding, posRef.current.x));
-        const clampedY = Math.max(navbarHeight + padding, Math.min(window.innerHeight - padding, posRef.current.y));
-
-        setPosition({ x: clampedX, y: clampedY });
-      }
 
       // Check proximity (distance between actual cursor and pufferfish)
       const rawDx = rawMouseRef.current.x - posRef.current.x;
@@ -309,16 +291,18 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
     return () => cancelAnimationFrame(animationFrameId);
   }, [isMinimized, isHovered, fishObject, location.pathname, pageDelayPassed]);
 
-  // Reset follower physical position to bottom-right when minimized again or when page changes
+  // Track window size to keep the stationary center correct for the eye tracking calculations
   useEffect(() => {
-    if (isMinimized) {
-      const defaultX = window.innerWidth - 100;
-      const defaultY = window.innerHeight - 100;
+    const updateFixedPosition = () => {
+      const defaultX = window.innerWidth - 80;
+      const defaultY = window.innerHeight - 80;
       posRef.current = { x: defaultX, y: defaultY };
       mouseRef.current = { x: defaultX, y: defaultY };
-      setPosition({ x: defaultX, y: defaultY });
-    }
-  }, [isMinimized, location.pathname]);
+    };
+    updateFixedPosition();
+    window.addEventListener('resize', updateFixedPosition);
+    return () => window.removeEventListener('resize', updateFixedPosition);
+  }, []);
 
   // Reset fish when expanded or on translation pages
   useEffect(() => {
@@ -330,6 +314,32 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
       fishObject.rotation.y = 0;
     }
   }, [location.pathname, isMinimized, fishObject]);
+
+  // Display timers and page state checks for the wobbly water bubble prompt
+  useEffect(() => {
+    if (!isMinimized) {
+      setShowBubble(false);
+      return;
+    }
+
+    const dismissed = localStorage.getItem('communityGoalsBubbleDismissed') === 'true';
+    if (dismissed) return;
+
+    // Show after 2s delay
+    const showTimer = setTimeout(() => {
+      setShowBubble(true);
+    }, 2000);
+
+    // Hide after 8s of visibility (10s total from mount/minimize)
+    const hideTimer = setTimeout(() => {
+      setShowBubble(false);
+    }, 10000);
+
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [isMinimized]);
 
   useEffect(() => {
     fetchGoals();
@@ -373,6 +383,10 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
     const newState = !isMinimized;
     setIsMinimized(newState);
     localStorage.setItem('communityGoalsMinimized', String(newState));
+    if (!newState) {
+      setShowBubble(false);
+      localStorage.setItem('communityGoalsBubbleDismissed', 'true');
+    }
   };
 
   const handleGoalClick = (goal: ApiCommunityGoal) => {
@@ -407,6 +421,11 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
     }
   };
 
+  const isAdminPage = location.pathname.startsWith('/admin');
+  if (isAdminPage) {
+    return null;
+  }
+
   if (loading || goals.length === 0) {
     return null;
   }
@@ -421,16 +440,51 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
 
     return (
       <div
-        className={`fixed z-50 ${className}`}
+        className={`fixed bottom-6 right-6 z-50 ${className}`}
         style={{
-          left: `${position.x - 56}px`,
-          top: `${position.y - 56}px`,
           pointerEvents: 'auto'
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        <style>{`
+          @keyframes bubbleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+          }
+          @keyframes liquidWobble {
+            0%, 100% { border-radius: 1.5rem 1.5rem 1.5rem 0.25rem; }
+            33% { border-radius: 1.6rem 1.4rem 1.5rem 0.25rem; }
+            66% { border-radius: 1.4rem 1.6rem 1.45rem 0.25rem; }
+          }
+          .water-bubble {
+            animation: bubbleFloat 4s ease-in-out infinite, liquidWobble 6s ease-in-out infinite;
+          }
+        `}</style>
         <div className={`relative ${isHovered ? 'scale-110' : 'scale-100'} transition-transform duration-300`}>
+          {/* Water bubble text prompt */}
+          {showBubble && (
+            <div 
+              className="absolute right-28 bottom-4 w-48 bg-sky-100/95 dark:bg-sky-950/95 border border-sky-200/50 dark:border-sky-800/40 p-3 shadow-[0_8px_32px_rgba(14,165,233,0.15)] text-slate-800 dark:text-slate-100 text-xs z-30 water-bubble pointer-events-auto cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="pr-4 font-medium leading-relaxed">
+                Click the fish to see the goals you can complete!
+              </p>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowBubble(false);
+                  localStorage.setItem('communityGoalsBubbleDismissed', 'true');
+                }}
+                className="absolute top-1 right-2 text-sky-500 hover:text-sky-700 font-bold text-sm"
+                aria-label="Close guide"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+
           {/* Transparent clickable wrapper container */}
           <div
             ref={containerRef}
@@ -439,6 +493,12 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
             role="button"
             aria-label="Show community goals"
           >
+            {/* Pulse glow background */}
+            <div className="absolute w-20 h-20 bg-gradient-to-tr from-cyan-400/25 to-blue-500/25 rounded-full blur-md animate-pulse z-0" />
+            
+            {/* Concentric ripple outer ring */}
+            <div className="absolute w-16 h-16 rounded-full border border-cyan-400/40 animate-ping opacity-75 z-0" style={{ animationDuration: '3s' }} />
+
             {/* 3D Spline Scene (Pufferfish) wrapped in a native resolution container to prevent scale-based blurriness */}
             <div 
               className="absolute w-[240px] h-[240px] pointer-events-auto"
