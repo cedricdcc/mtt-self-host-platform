@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node -e \"const fs = require('fs'), cp = require('child_process'), path = require('path'); fs.readdirSync('tests').filter(f => f.endsWith('.test.js')).forEach(f => cp.execSync('node ' + path.join('tests', f), { stdio: 'inherit' }))\""
   },
   "dependencies": {
     "archiver": "^7.0.1",

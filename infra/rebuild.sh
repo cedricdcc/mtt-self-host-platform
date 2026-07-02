@@ -101,6 +101,17 @@ check_health() {
 
 log "=== Rebuild Started ==="
 
+# Run tests
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="$SCRIPT_DIR/../backend"
+
+log "Running backend tests..."
+if ! npm --prefix "$BACKEND_DIR" run test; then
+  log "❌ CRITICAL: Test suites failed! Aborting rebuild."
+  exit 1
+fi
+log "✅ All tests passed. Proceeding with rebuild..."
+
 # 1. Stop Stack & Clean
 log "Stopping current Docker Compose stack..."
 docker compose down
