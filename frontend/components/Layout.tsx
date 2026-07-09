@@ -321,9 +321,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Footer - hidden on phone when authenticated */}
       <footer className={`bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 ${isAuthenticated ? 'hidden md:block' : ''}`}>
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <img src="/mtt-logo.svg" alt="Marine Term Translations" className="w-5 h-5" />
-            <span className="font-semibold text-slate-700 dark:text-slate-300">Marine Term Translations</span>
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2">
+              <img src="/mtt-logo.svg" alt="Marine Term Translations" className="w-5 h-5" />
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Marine Term Translations</span>
+            </div>
+            <div className="flex items-center gap-2 border-slate-300 dark:border-slate-800 sm:border-l sm:pl-6 py-1">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Sponsored by</span>
+              <a href="https://emodnet.ec.europa.eu/" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+                <img src="/emodnet-logo.png" alt="EMODnet" className="h-6 object-contain bg-white/90 dark:bg-white px-1.5 py-0.5 rounded" />
+              </a>
+            </div>
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400 text-center md:text-right">
             &copy; {format(parse(now()), 'YYYY')} Marine Term Translations. Data sourced from NERC Vocabulary Server.
