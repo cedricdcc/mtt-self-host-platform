@@ -157,10 +157,10 @@ router.post("/user/preferences", userPreferencesLimiter, requireAuth, (req, res)
   try {
     const db = getDatabase();
     const userId = req.session.user.id || req.session.user.user_id;
-    const { nativeLanguage, translationLanguages, preferredLanguages, visibleExtraLanguages } = req.body;
+    const { nativeLanguage, translationLanguages, preferredLanguages, visibleExtraLanguages, pinnedAchievements } = req.body;
     
     console.log('[User Preferences] Updating preferences for user ID:', userId);
-    console.log('[User Preferences] New preferences:', { nativeLanguage, translationLanguages, preferredLanguages, visibleExtraLanguages });
+    console.log('[User Preferences] New preferences:', { nativeLanguage, translationLanguages, preferredLanguages, visibleExtraLanguages, pinnedAchievements });
     
     // Get current user data
     const user = db.prepare('SELECT extra FROM users WHERE id = ?').get(userId);
@@ -183,6 +183,7 @@ router.post("/user/preferences", userPreferencesLimiter, requireAuth, (req, res)
     // Update legacy preferences
     if (nativeLanguage !== undefined) extra.nativeLanguage = nativeLanguage;
     if (translationLanguages !== undefined) extra.translationLanguages = translationLanguages;
+    if (pinnedAchievements !== undefined) extra.pinnedAchievements = pinnedAchievements;
     
     // Save updated extra data
     db.prepare('UPDATE users SET extra = ? WHERE id = ?').run(

@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { backendApi } from '../services/api';
 import { ApiPublicUser, ApiUserActivity, ApiCommunity } from '../types';
-import { Loader2, Calendar, Shield, Globe, Award, Edit, User as UserIcon, ExternalLink, HelpCircle, Users } from 'lucide-react';
+import { Loader2, Calendar, Shield, Globe, Award, Edit, User as UserIcon, ExternalLink, HelpCircle, Users, Pin, PinOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { parse, format, now } from '@/src/utils/datetime';
+import { AchievementIcon } from '../components/AchievementIcon';
+import { CONFIG } from '../config';
 
 const ContributionHeatmap: React.FC<{ history: ApiUserActivity[] }> = ({ history }) => {
   // Determine date range (Last 365 days)
@@ -108,56 +109,72 @@ const UserProfile: React.FC = () => {
   const [extraData, setExtraData] = useState<any>({});
   const [history, setHistory] = useState<ApiUserActivity[]>([]);
   const [communities, setCommunities] = useState<ApiCommunity[]>([]);
+  
+  // Achievements State
+  const [achievements, setAchievements] = useState<any[]>([]);
+  const [pinnedList, setPinnedList] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'activity' | 'achievements'>('activity');
+
+  const fetchUserProfile = async () => {
+    if (!id) return;
+    
+    setLoading(true);
+    try {
+      const userData = await backendApi.getUser(id);
+      setUserProfile(userData);
+
+      // Parse Extra Data
+      if (userData.extra) {
+          try {
+              const extra = JSON.parse(userData.extra);
+              setExtraData(extra);
+              if (extra.translationLanguages && Array.isArray(extra.translationLanguages)) {
+                  setLanguages(extra.translationLanguages);
+              }
+              if (extra.nativeLanguage) {
+                  setNativeLanguage(extra.nativeLanguage);
+              }
+              if (extra.pinnedAchievements && Array.isArray(extra.pinnedAchievements)) {
+                  setPinnedList(extra.pinnedAchievements);
+              }
+          } catch (e) {
+              console.error("Failed to parse user extra data", e);
+          }
+      }
+
+      // Fetch User History for Graph
+      try {
+          const historyData = await backendApi.getUserHistory(id);
+          setHistory(historyData);
+      } catch (e) {
+          console.error("Failed to fetch user history", e);
+      }
+
+      // Fetch User Communities
+      try {
+          const communitiesData = await backendApi.get<{communities: ApiCommunity[]}>(`/users/${id}/communities`);
+          setCommunities(communitiesData.communities || []);
+      } catch (e) {
+          console.error("Failed to fetch user communities", e);
+      }
+
+      // Fetch User Achievements progress
+      try {
+          const achievementsData = await backendApi.getUserAchievements(id);
+          setAchievements(achievementsData);
+      } catch (e) {
+          console.error("Failed to fetch user achievements", e);
+      }
+
+    } catch (error) {
+      console.error("Failed to fetch user profile", error);
+      toast.error("Failed to load user profile");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!id) return;
-      
-      setLoading(true);
-      try {
-        const userData = await backendApi.getUser(id);
-        setUserProfile(userData);
-
-        // Parse Extra Data
-        if (userData.extra) {
-            try {
-                const extra = JSON.parse(userData.extra);
-                setExtraData(extra);
-                if (extra.translationLanguages && Array.isArray(extra.translationLanguages)) {
-                    setLanguages(extra.translationLanguages);
-                }
-                if (extra.nativeLanguage) {
-                    setNativeLanguage(extra.nativeLanguage);
-                }
-            } catch (e) {
-                console.error("Failed to parse user extra data", e);
-            }
-        }
-
-        // Fetch User History for Graph
-        try {
-            const historyData = await backendApi.getUserHistory(id);
-            setHistory(historyData);
-        } catch (e) {
-            console.error("Failed to fetch user history", e);
-        }
-
-        // Fetch User Communities
-        try {
-            const communitiesData = await backendApi.get<{communities: ApiCommunity[]}>(`/users/${id}/communities`);
-            setCommunities(communitiesData.communities || []);
-        } catch (e) {
-            console.error("Failed to fetch user communities", e);
-        }
-
-      } catch (error) {
-        console.error("Failed to fetch user profile", error);
-        toast.error("Failed to load user profile");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUserProfile();
   }, [id]);
 
@@ -202,6 +219,60 @@ const UserProfile: React.FC = () => {
   const tier = getTier(userProfile.reputation);
   const progressPercent = Math.min(100, Math.max(0, ((userProfile.reputation - tier.min) / (tier.next - tier.min)) * 100));
 
+  // Compute showcase badges:
+  // If there are pinned achievements, filter by those.
+  // Else, take the top 3 highest-unlocked achievements.
+  const getShowcaseBadges = () => {
+    const unlockedOnly = achievements.map(a => {
+      const highestUnlockedTier = a.tiers.reduce((max: number, t: any) => {
+        return t.unlocked && t.tier > max ? t.tier : max;
+      }, 0);
+      return {
+        ...a,
+        highestTier: highestUnlockedTier
+      };
+    }).filter(a => a.highestTier > 0);
+
+    if (pinnedList.length > 0) {
+      return pinnedList.map(pId => unlockedOnly.find(a => a.id === pId)).filter(Boolean) as any[];
+    }
+
+    return unlockedOnly.sort((a, b) => b.highestTier - a.highestTier).slice(0, 3);
+  };
+
+  const showcaseBadges = getShowcaseBadges();
+
+  const handleTogglePin = async (achievementId: string) => {
+    let newPinned = [...pinnedList];
+    if (newPinned.includes(achievementId)) {
+      newPinned = newPinned.filter(id => id !== achievementId);
+    } else {
+      if (newPinned.length >= 3) {
+        toast.error("You can pin a maximum of 3 achievements to the showcase.");
+        return;
+      }
+      newPinned.push(achievementId);
+    }
+    
+    try {
+      await fetch(`${CONFIG.API_URL}/user/preferences`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          pinnedAchievements: newPinned
+        })
+      });
+      setPinnedList(newPinned);
+      toast.success(newPinned.includes(achievementId) ? "Achievement pinned to showcase!" : "Achievement unpinned.");
+    } catch (err) {
+      console.error("Failed to update pinned achievements", err);
+      toast.error("Failed to update showcase pins.");
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Header Card */}
@@ -234,7 +305,7 @@ const UserProfile: React.FC = () => {
             </div>
 
             {/* User Info & Stats Row */}
-            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start gap-6">
                 <div className="flex-1">
                     <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-1">{displayName}</h1>
                     
@@ -268,11 +339,11 @@ const UserProfile: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Right Side Group: Reputation Bar & Languages */}
-                <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                {/* Right Side Group: Reputation Bar, Languages, Achievements Showcase */}
+                <div className="flex flex-wrap gap-4 w-full lg:w-auto">
                     
                     {/* Reputation Bar */}
-                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 min-w-[200px] w-full sm:w-auto flex flex-col justify-between">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 min-w-[200px] flex-1 sm:flex-initial flex flex-col justify-between">
                         <div className="flex justify-between items-start mb-1">
                             <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
                                 <Award size={14} /> Reputation
@@ -297,9 +368,32 @@ const UserProfile: React.FC = () => {
                         </div>
                     </div>
 
+                    {/* Achievements Showcase Card */}
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 min-w-[200px] flex-1 sm:flex-initial flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-1">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1">
+                                <Award size={14} /> Showcase
+                            </h3>
+                        </div>
+                        <div className="flex gap-4 items-center justify-center py-1">
+                            {showcaseBadges.length > 0 ? (
+                                showcaseBadges.map(badge => (
+                                    <div key={badge.id} title={`${badge.name} (Tier ${badge.highestTier})`} className="relative group/showcase">
+                                        <AchievementIcon id={badge.id} tier={badge.highestTier} unlocked={true} size={42} />
+                                    </div>
+                                ))
+                            ) : (
+                                <span className="text-xs text-slate-400 py-3 italic">No badges showcased</span>
+                            )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-1 text-center">
+                            Pinned achievements
+                        </div>
+                    </div>
+
                     {/* Languages Box */}
                     {languages.length > 0 && (
-                         <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 min-w-[200px] max-w-sm w-full sm:w-auto">
+                         <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-700 min-w-[200px] flex-1 sm:flex-initial">
                              <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
                                  <Globe size={14} /> Languages
                              </h3>
@@ -317,58 +411,205 @@ const UserProfile: React.FC = () => {
         </div>
       </div>
 
-      {/* Activity Section - Full Width */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Contribution Activity</h3>
-              {isOwnProfile && (
-                <Link to="/dashboard" className="text-sm text-marine-600 hover:underline">
-                    View Dashboard
-                </Link>
-              )}
-          </div>
-          
-          <ContributionHeatmap history={history} />
-          
+      {/* Tabs Menu */}
+      <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6 gap-6">
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all ${
+            activeTab === 'activity'
+              ? 'border-marine-500 text-marine-600 dark:text-marine-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          Activity
+        </button>
+        <button
+          onClick={() => setActiveTab('achievements')}
+          className={`pb-4 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'achievements'
+              ? 'border-marine-500 text-marine-600 dark:text-marine-400'
+              : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+          }`}
+        >
+          <Award size={16} />
+          Achievements
+        </button>
       </div>
 
-      {/* Communities Section */}
-      {communities.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Users size={20} />
-              Communities ({communities.length})
-            </h3>
-            <Link to="/communities" className="text-sm text-marine-600 hover:underline">
-              View All Communities
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {communities.map((community) => (
-              <Link
-                key={community.id}
-                to={`/communities/${community.id}`}
-                className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-marine-500 dark:hover:border-marine-500 transition-colors"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  {community.type === 'language' ? (
-                    <Globe className="text-blue-600 dark:text-blue-400" size={16} />
-                  ) : (
-                    <Users className="text-purple-600 dark:text-purple-400" size={16} />
+      {/* Tab Contents */}
+      {activeTab === 'activity' && (
+        <>
+          {/* Activity Section - Full Width */}
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Contribution Activity</h3>
+                  {isOwnProfile && (
+                    <Link to="/dashboard" className="text-sm text-marine-600 hover:underline">
+                        View Dashboard
+                    </Link>
                   )}
-                  <h4 className="font-semibold text-slate-900 dark:text-white truncate">
-                    {community.name}
-                  </h4>
+              </div>
+              
+              <ContributionHeatmap history={history} />
+          </div>
+
+          {/* Communities Section */}
+          {communities.length > 0 && (
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Users size={20} />
+                  Communities ({communities.length})
+                </h3>
+                <Link to="/communities" className="text-sm text-marine-600 hover:underline">
+                  View All Communities
+                </Link>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {communities.map((community) => (
+                  <Link
+                    key={community.id}
+                    to={`/communities/${community.id}`}
+                    className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-marine-500 dark:hover:border-marine-500 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {community.type === 'language' ? (
+                        <Globe className="text-blue-600 dark:text-blue-400" size={16} />
+                      ) : (
+                        <Users className="text-purple-600 dark:text-purple-400" size={16} />
+                      )}
+                      <h4 className="font-semibold text-slate-900 dark:text-white truncate">
+                        {community.name}
+                      </h4>
+                    </div>
+                    {community.role && (
+                      <span className="inline-block text-xs bg-marine-100 dark:bg-marine-900/30 text-marine-700 dark:text-marine-400 px-2 py-1 rounded capitalize">
+                        {community.role}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'achievements' && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-8">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Achievements Grid</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Track your progress and unlock marine badges. Click tiers to view criteria and global rarity.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {achievements.map((ach) => {
+              // Determine current tier progress details
+              const highestUnlocked = ach.tiers.reduce((max: number, t: any) => t.unlocked && t.tier > max ? t.tier : max, 0);
+              const nextTier = ach.tiers.find((t: any) => !t.unlocked) || ach.tiers[ach.tiers.length - 1];
+              
+              // Calculate progress percent
+              const baseVal = highestUnlocked === 0 ? 0 : ach.tiers[highestUnlocked - 1].target_value;
+              const targetVal = nextTier.target_value;
+              const currentVal = Math.min(ach.currentProgress, targetVal);
+              const progressRange = targetVal - baseVal;
+              const progressCurrent = currentVal - baseVal;
+              const progressPct = progressRange > 0 ? Math.max(0, Math.min(100, (progressCurrent / progressRange) * 100)) : 100;
+
+              return (
+                <div key={ach.id} className="bg-slate-50 dark:bg-slate-950 p-6 rounded-xl border border-slate-100 dark:border-slate-900 flex flex-col justify-between relative group hover:shadow-md transition-shadow">
+                  {/* Pin to Showcase Button */}
+                  {isOwnProfile && highestUnlocked > 0 && (
+                    <button
+                      onClick={() => handleTogglePin(ach.id)}
+                      className="absolute top-4 right-4 text-slate-400 hover:text-marine-500 transition-colors"
+                      title={pinnedList.includes(ach.id) ? "Unpin from showcase" : "Pin to showcase"}
+                    >
+                      {pinnedList.includes(ach.id) ? <PinOff size={16} /> : <Pin size={16} />}
+                    </button>
+                  )}
+
+                  <div className="flex gap-4 items-start mb-4">
+                    <div className="flex-shrink-0">
+                      {/* Show current tier representation icon (use highest unlocked, or bronze/locked icon) */}
+                      <AchievementIcon id={ach.id} tier={highestUnlocked || 1} unlocked={highestUnlocked > 0} size={72} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-1.5">
+                        {ach.name}
+                        {highestUnlocked > 0 && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
+                            highestUnlocked === 3 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400' :
+                            highestUnlocked === 2 ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300' :
+                            'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400'
+                          }`}>
+                            {highestUnlocked === 3 ? 'Gold' : highestUnlocked === 2 ? 'Silver' : 'Bronze'}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 leading-normal">{ach.description}</p>
+                    </div>
+                  </div>
+
+                  {/* Progress info */}
+                  <div className="mt-2">
+                    <div className="flex justify-between text-xs font-semibold text-slate-500 mb-1">
+                      <span>Progress</span>
+                      <span>{ach.currentProgress} / {targetVal}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2">
+                      <div 
+                        className="bg-marine-500 h-2 rounded-full transition-all duration-500" 
+                        style={{ width: `${progressPct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Tiers metadata section */}
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-900 grid grid-cols-3 gap-2">
+                    {ach.tiers.map((t: any) => {
+                      const tierName = t.tier === 1 ? 'Bronze' : t.tier === 2 ? 'Silver' : 'Gold';
+                      return (
+                        <div 
+                          key={t.tier} 
+                          className={`text-center p-2 rounded-lg relative group/tier cursor-help transition-all ${
+                            t.unlocked 
+                              ? 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm'
+                              : 'bg-slate-100/50 dark:bg-slate-950/30 border border-transparent opacity-60'
+                          }`}
+                        >
+                          <span className={`text-[10px] font-bold block ${
+                            t.unlocked 
+                              ? (t.tier === 3 ? 'text-amber-500' : t.tier === 2 ? 'text-slate-400 dark:text-slate-300' : 'text-orange-500')
+                              : 'text-slate-400'
+                          }`}>
+                            {tierName}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{t.target_value}</span>
+                          
+                          {/* Rich hover details / Tooltip */}
+                          <div className="absolute z-10 bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white text-[11px] p-2.5 rounded-lg opacity-0 pointer-events-none group-hover/tier:opacity-100 group-hover/tier:pointer-events-auto transition-opacity duration-200 shadow-xl border border-slate-800 text-left">
+                            <p className="font-bold text-slate-300 uppercase text-[9px] mb-1">{ach.name} - Tier {t.tier}</p>
+                            <p className="mb-1 text-slate-100">Target: <span className="font-semibold">{t.target_value}</span></p>
+                            <p className="mb-1 text-slate-100">Reward: <span className="font-semibold">{t.reward_points} reputation</span></p>
+                            <p className="mb-1 text-slate-100">Status: <span className={t.unlocked ? 'text-green-400 font-semibold' : 'text-slate-400'}>
+                              {t.unlocked ? 'Unlocked ✓' : 'Locked ✗'}
+                            </span></p>
+                            {t.unlocked_at && (
+                              <p className="mb-1 text-slate-400">Unlocked: {format(parse(t.unlocked_at), 'YYYY-MM-DD')}</p>
+                            )}
+                            <p className="border-t border-slate-800 pt-1 mt-1 text-[10px] text-marine-300">
+                              Unlocked by {t.unlockedPercentage}% of users
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                {community.role && (
-                  <span className="inline-block text-xs bg-marine-100 dark:bg-marine-900/30 text-marine-700 dark:text-marine-400 px-2 py-1 rounded capitalize">
-                    {community.role}
-                  </span>
-                )}
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

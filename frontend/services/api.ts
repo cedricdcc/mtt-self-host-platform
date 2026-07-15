@@ -513,6 +513,23 @@ class ApiService {
   public async getUserDrafts(): Promise<any[]> {
     return this.get<any[]>('/user/drafts');
   }
+
+  // --- Achievements Methods ---
+  public async getUserAchievements(userId?: number | string): Promise<any[]> {
+    const url = userId ? `/gamification/achievements?userId=${userId}` : '/gamification/achievements';
+    return this.get<any[]>(url);
+  }
+
+  public async getAdminAchievements(): Promise<any[]> {
+    return this.get<any[]>('/admin/achievements');
+  }
+
+  public async updateAchievementTier(achievementId: string, tier: number, targetValue: number, rewardPoints: number): Promise<{ success: boolean; message: string }> {
+    return this.put<{ success: boolean; message: string }>(`/admin/achievements/${achievementId}/tiers/${tier}`, {
+      target_value: targetValue,
+      reward_points: rewardPoints
+    });
+  }
 }
 
 // Export pre-configured instances

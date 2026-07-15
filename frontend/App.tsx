@@ -38,7 +38,9 @@ import AdminCommunityGoals from './pages/admin/AdminCommunityGoals';
 import AdminCommunities from './pages/admin/AdminCommunities';
 import AdminReputationRules from './pages/admin/AdminReputationRules';
 import AdminMailSettings from './pages/admin/AdminMailSettings';
+import AdminAchievements from './pages/admin/AdminAchievements';
 import Banned from './pages/Banned';
+
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
@@ -236,6 +238,11 @@ const App: React.FC = () => {
         <Route path="/admin/mail" element={
           <AdminRoute>
             <AdminMailSettings />
+          </AdminRoute>
+        } />
+        <Route path="/admin/achievements" element={
+          <AdminRoute>
+            <AdminAchievements />
           </AdminRoute>
         } />
 

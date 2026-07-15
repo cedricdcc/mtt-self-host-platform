@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Users, Database, AlertTriangle, TrendingUp, Activity, PieChart, DownloadCloud, Layers, Target, Mail } from 'lucide-react';
+import { ShieldCheck, Users, Database, AlertTriangle, TrendingUp, Activity, PieChart, DownloadCloud, Layers, Target, Mail, Award } from 'lucide-react';
 import { backendApi } from '../services/api';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -540,6 +540,28 @@ const AdminDashboard: React.FC = () => {
             </div>
             <Link to="/admin/mail" className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
                 Manage Mail &rarr;
+            </Link>
+        </div>
+
+        {/* Achievements Config Card */}
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col justify-between">
+            <div>
+                <div className="flex items-center gap-3 mb-3">
+                    <div className="p-3 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                        <Award className="text-rose-600 dark:text-rose-400" size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white text-lg">
+                            Achievements Config
+                        </h3>
+                    </div>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Configure target thresholds and reward points for marine creature achievement tiers.
+                </p>
+            </div>
+            <Link to="/admin/achievements" className="inline-block px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
+                Manage Achievements &rarr;
             </Link>
         </div>
       </div>

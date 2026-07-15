@@ -18,7 +18,11 @@ const requireAuth = (req, res, next) => {
  */
 async function getAchievementsHandler(req, res) {
   try {
-    const userId = req.session.user.id || req.session.user.user_id;
+    const sessionUserId = req.session.user.id || req.session.user.user_id;
+    const userId = req.query?.userId ? parseInt(req.query.userId, 10) : sessionUserId;
+    if (isNaN(userId)) {
+      return res.status(400).json({ error: 'Invalid userId provided' });
+    }
     const achievements = getUserAchievementsWithProgress(userId);
     res.json(achievements);
   } catch (error) {
