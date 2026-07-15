@@ -88,7 +88,7 @@ function awardPoints(userIdentifier, points, reason = "general") {
   try {
     db.transaction(() => {
       db.prepare(
-        "UPDATE users SET reputation = reputation + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        "UPDATE users SET reputation = reputation + ? WHERE id = ?"
       ).run(points, userId);
       db.prepare(
         "UPDATE user_stats SET points = points + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?"
