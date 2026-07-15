@@ -103,9 +103,9 @@ async function updateAchievementTierHandler(req, res) {
 }
 
 // Router registrations
-router.get("/api/gamification/achievements", apiLimiter, requireAuth, getAchievementsHandler);
-router.get("/api/admin/achievements", requireAdmin, apiLimiter, getAdminAchievementsHandler);
-router.put("/api/admin/achievements/:achievementId/tiers/:tier", requireAdmin, apiLimiter, updateAchievementTierHandler);
+router.get("/gamification/achievements", apiLimiter, requireAuth, getAchievementsHandler);
+router.get("/admin/achievements", requireAdmin, apiLimiter, getAdminAchievementsHandler);
+router.put("/admin/achievements/:achievementId/tiers/:tier", requireAdmin, apiLimiter, updateAchievementTierHandler);
 
 module.exports = router;
 module.exports.getAchievementsHandler = getAchievementsHandler;
