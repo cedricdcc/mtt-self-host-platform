@@ -1,7 +1,9 @@
 name: ${COMPOSE_PROJECT_NAME:-kgap}
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      network: host
     container_name: marine-backend
     restart: unless-stopped
     env_file:
@@ -23,6 +25,7 @@ services:
   frontend:
     build: 
       context: ./frontend
+      network: host
       args:
         - VITE_API_URL=${VITE_API_URL:-http://localhost:5000/api}
         - VITE_DOMAIN=${DOMAIN:-localhost}
