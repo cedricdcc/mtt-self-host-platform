@@ -12,24 +12,16 @@ let transporter = null;
 function getTransporter() {
   if (!transporter) {
     const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+    const smtpPort = parseInt(process.env.SMTP_PORT || "25", 10);
     const smtpSecure = process.env.SMTP_SECURE === "true";
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-
     if (!smtpHost) {
       console.warn("[Mail Service] SMTP_HOST not configured. Mail service running in offline mode.");
       return null;
     }
-
     transporter = nodemailer.createTransport({
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
-      auth: smtpUser ? {
-        user: smtpUser,
-        pass: smtpPass
-      } : undefined,
       tls: {
         rejectUnauthorized: false // Avoid SSL certificate rejection for local/self-signed setups
       }
