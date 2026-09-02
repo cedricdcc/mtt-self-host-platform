@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test": "node -e \"const fs = require('fs'), cp = require('child_process'), path = require('path'); fs.readdirSync('tests').filter(f => f.endsWith('.test.js')).forEach(f => cp.execSync('node ' + path.join('tests', f), { stdio: 'inherit' }))\"",
-    "test:live": "node scripts/live-api-check.js"
+    "test:live": "node scripts/live-api-check.js",
+    "test:mail": "node scripts/test-smtp-send.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",
