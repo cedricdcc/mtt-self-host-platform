@@ -13,7 +13,8 @@ import {
   Mail, 
   Award,
   Zap,
-  Calendar
+  Calendar,
+  Fish
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -580,6 +581,29 @@ const AdminDashboard: React.FC = () => {
             </div>
             <Link to="/admin/events" className="inline-block px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
                 Manage Events &rarr;
+            </Link>
+        </div>
+
+        {/* Oceanarium & Gacha Management */}
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between hover:border-cyan-500/50 transition-all">
+            <div>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 rounded-xl">
+                        <Fish size={24}/>
+                    </div>
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                        Preview
+                    </span>
+                </div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-lg">
+                    Oceanarium & Gacha
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Manage user preview access, distribute dive tickets, and inspect marine ecosystem status.
+                </p>
+            </div>
+            <Link to="/admin/gacha" className="inline-block px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-sm font-medium transition-colors mt-4">
+                Manage Ecosystem &rarr;
             </Link>
         </div>
       </div>
