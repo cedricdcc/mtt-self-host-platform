@@ -38,6 +38,7 @@ const achievementsRoutes = require("./routes/achievements.routes");
 const eventRoutes = require("./routes/eventRoutes");
 const ecosystemRoutes = require("./routes/ecosystem.routes");
 const gachaRoutes = require("./routes/gacha.routes");
+const adminGachaRoutes = require("./routes/adminGacha.routes");
 
 const app = express();
 
@@ -130,6 +131,8 @@ app.use("/api/ecosystem", ecosystemRoutes);
 app.use("/ecosystem", ecosystemRoutes);
 app.use("/api/gacha", gachaRoutes);
 app.use("/gacha", gachaRoutes);
+app.use("/", adminGachaRoutes);
+app.use("/api", adminGachaRoutes);
 
 
 app.post("/debug-log", (req, res) => {
