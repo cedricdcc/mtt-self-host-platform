@@ -299,16 +299,22 @@ router.get("/me", (req, res) => {
       const user = db.prepare('SELECT id, extra, is_admin FROM users WHERE username = ?').get(req.session.user.username);
       if (user) {
         req.session.user.id = user.id;
-        req.session.user.is_admin = user.is_admin;
+        let extra = {};
         if (user.extra) {
-          const extra = JSON.parse(user.extra);
+          try {
+            extra = typeof user.extra === 'string' ? JSON.parse(user.extra) : user.extra;
+          } catch (e) {}
           req.session.user.is_banned = extra.is_banned || false;
           req.session.user.ban_reason = extra.ban_reason || '';
           req.session.user.banned_at = extra.banned_at || '';
           req.session.user.is_superadmin = Boolean(extra.is_superadmin);
         }
-        const isSuperAdmin = Boolean(req.session.user.is_superadmin);
-        const isAdmin = Boolean(user.is_admin === 1 || req.session.user.is_admin);
+        const isSuperAdmin = Boolean(req.session.user.is_superadmin || extra.is_superadmin);
+        const isAdmin = Boolean(user.is_admin === 1 || extra.is_admin === true || isSuperAdmin || req.session.user.is_admin);
+        
+        req.session.user.is_admin = isAdmin;
+        req.session.user.is_superadmin = isSuperAdmin;
+        
         const eco = db.prepare('SELECT has_gacha_access FROM user_ecosystem WHERE user_id = ?').get(user.id);
         req.session.user.has_gacha_access = Boolean(isSuperAdmin || isAdmin || (eco && eco.has_gacha_access === 1));
       }

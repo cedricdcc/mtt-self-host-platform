@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               name: data.name || data.orcid,
               avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.orcid)}&background=0ea5e9&color=fff`,
               token: data.access_token, // For compatibility with existing code
-              isAdmin: Boolean(data.is_admin), // Use is_admin from backend session
+              isAdmin: Boolean(data.is_admin || data.is_superadmin), // Superadmins are always admins
               isSuperAdmin: Boolean(data.is_superadmin), // Use is_superadmin from backend session
               hasGachaAccess: Boolean(data.has_gacha_access || data.is_admin || data.is_superadmin),
               orcid: data.orcid, // Keep ORCID for reference

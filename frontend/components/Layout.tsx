@@ -346,7 +346,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   <Link to="/dashboard" className="block py-2 text-slate-600 dark:text-slate-300 hover:text-marine-600" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
                   <Link to={`/user/${user?.id || user?.user_id}`} className="block py-2 text-slate-600 dark:text-slate-300 hover:text-marine-600" onClick={() => setIsMenuOpen(false)}>My Profile</Link>
                   <Link to="/settings" className="block py-2 text-slate-600 dark:text-slate-300 hover:text-marine-600" onClick={() => setIsMenuOpen(false)}>Settings</Link>
-                   {user?.isAdmin && (
+                   {(user?.isAdmin || user?.isSuperAdmin) && (
                     <Link to="/admin" className="block py-2 text-marine-600 dark:text-marine-400 font-semibold" onClick={() => setIsMenuOpen(false)}>Admin Dashboard</Link>
                   )}
                   <button onClick={handleLogout} className="w-full text-left py-2 text-red-500 font-medium">Sign Out</button>

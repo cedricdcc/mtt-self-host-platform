@@ -23,7 +23,9 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!user?.isAdmin) {
+  const isAdminOrSuper = Boolean(user?.isAdmin || user?.isSuperAdmin || (user as any)?.is_admin === 1 || (user as any)?.is_superadmin);
+
+  if (!isAdminOrSuper) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
         <div className="p-4 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full mb-4">

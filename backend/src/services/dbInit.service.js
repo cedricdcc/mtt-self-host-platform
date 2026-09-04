@@ -174,6 +174,17 @@ function initializeDatabase() {
   // Apply any pending migrations
   console.log('[DB Init] Checking for migrations...');
   applyMigrations();
+
+  // Ensure users with is_admin or is_superadmin in extra have is_admin = 1 in database column
+  try {
+    db.prepare(`
+      UPDATE users 
+      SET is_admin = 1 
+      WHERE is_admin = 0 AND (extra LIKE '%"is_admin":true%' OR extra LIKE '%"is_superadmin":true%')
+    `).run();
+  } catch (err) {
+    console.error('[DB Init] Error syncing admin flags:', err);
+  }
   
   seedAchievements(db);
   retroactivelyAwardAchievements(db);
