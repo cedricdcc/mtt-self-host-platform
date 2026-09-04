@@ -36,6 +36,8 @@ const vocabularyRequestsRoutes = require("./routes/vocabulary-requests.routes");
 const mailRoutes = require("./routes/mail.routes");
 const achievementsRoutes = require("./routes/achievements.routes");
 const eventRoutes = require("./routes/eventRoutes");
+const ecosystemRoutes = require("./routes/ecosystem.routes");
+const gachaRoutes = require("./routes/gacha.routes");
 
 const app = express();
 
@@ -124,6 +126,10 @@ app.use("/", vocabularyRequestsRoutes);
 app.use("/", mailRoutes);
 app.use("/", achievementsRoutes);
 app.use("/", eventRoutes);
+app.use("/api/ecosystem", ecosystemRoutes);
+app.use("/ecosystem", ecosystemRoutes);
+app.use("/api/gacha", gachaRoutes);
+app.use("/gacha", gachaRoutes);
 
 
 app.post("/debug-log", (req, res) => {
