@@ -125,7 +125,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path ? 'text-marine-600 dark:text-marine-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-marine-600 dark:hover:text-marine-300';
 
   const topmostNonEnglishLang = getPreferredNonEnglishLanguage(user);
-
+  const canAccessOceanarium = Boolean(user && (user.isAdmin || user.isSuperAdmin || user.hasGachaAccess));
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
@@ -163,15 +163,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {isAuthenticated ? (
                 <>
                   <Link to="/browse" data-tour="nav-browse" className={isActive('/browse')}>Browse</Link>
-                  {(user?.isAdmin || user?.is_admin === 1) && (
-                    <>
-                      <Link to="/admin" className={`${isActive('/admin')} flex items-center gap-1`}>
-                         <ShieldCheck size={16} /> Admin
-                      </Link>
-                      <Link to="/oceanarium" className={`${isActive('/oceanarium')} flex items-center gap-1.5`}>
-                         <Fish size={16} className="text-cyan-500" /> Oceanarium
-                      </Link>
-                    </>
+                  {(user?.isAdmin || user?.isSuperAdmin || user?.is_admin === 1) && (
+                    <Link to="/admin" className={`${isActive('/admin')} flex items-center gap-1`}>
+                       <ShieldCheck size={16} /> Admin
+                    </Link>
+                  )}
+                  {canAccessOceanarium && (
+                    <Link to="/oceanarium" className={`${isActive('/oceanarium')} flex items-center gap-1.5`}>
+                       <Fish size={16} className="text-cyan-500" /> Oceanarium
+                    </Link>
                   )}
                 </>
               ) : (
@@ -248,7 +248,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         >
                           Documentation
                         </Link>
-                        {(user?.isAdmin || user?.is_admin === 1) && (
+                        {canAccessOceanarium && (
                           <Link 
                             to="/oceanarium" 
                             className="block px-4 py-2.5 text-sm text-cyan-600 dark:text-cyan-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 font-medium"
