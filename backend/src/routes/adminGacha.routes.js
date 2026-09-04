@@ -160,4 +160,155 @@ router.post('/admin/gacha/users/:id/grant-resources', requireAdmin, apiLimiter, 
   }
 });
 
+/**
+ * GET /api/admin/gacha/users/:id/tank
+ * Returns target user's ecosystem status and all caught specimens
+ */
+router.get('/admin/gacha/users/:id/tank', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const db = getDatabase();
+    const user = db.prepare('SELECT id, username FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let eco = db.prepare('SELECT * FROM user_ecosystem WHERE user_id = ?').get(userId);
+    if (!eco) {
+      db.prepare('INSERT INTO user_ecosystem (user_id) VALUES (?)').run(userId);
+      eco = db.prepare('SELECT * FROM user_ecosystem WHERE user_id = ?').get(userId);
+    }
+
+    const fishes = db.prepare(`
+      SELECT 
+        uf.id,
+        uf.user_id,
+        uf.species_id,
+        uf.nickname,
+        uf.status,
+        uf.caught_at,
+        uf.is_favorite,
+        s.name,
+        s.depth_zone,
+        s.rarity,
+        s.visual_traits,
+        s.description
+      FROM user_fishes uf
+      JOIN gacha_species s ON uf.species_id = s.id
+      WHERE uf.user_id = ?
+      ORDER BY uf.caught_at DESC, uf.id DESC
+    `).all(userId);
+
+    res.json({ ecosystem: eco, fishes });
+  } catch (err) {
+    console.error('[Admin Gacha] Error fetching user tank:', err);
+    res.status(500).json({ error: 'Failed to fetch user tank' });
+  }
+});
+
+/**
+ * DELETE /api/admin/gacha/users/:id/fishes/:fishId
+ * Deletes a specific fish for a user
+ */
+router.delete('/admin/gacha/users/:id/fishes/:fishId', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const fishId = parseInt(req.params.fishId, 10);
+    const db = getDatabase();
+
+    const fish = db.prepare('SELECT id FROM user_fishes WHERE id = ? AND user_id = ?').get(fishId, userId);
+    if (!fish) return res.status(404).json({ error: 'Fish not found for this user' });
+
+    db.prepare('DELETE FROM user_fishes WHERE id = ? AND user_id = ?').run(fishId, userId);
+    const remainingCount = db.prepare('SELECT COUNT(*) as count FROM user_fishes WHERE user_id = ?').get(userId).count;
+
+    res.json({ ok: true, deletedFishId: fishId, remainingCount });
+  } catch (err) {
+    console.error('[Admin Gacha] Error deleting fish:', err);
+    res.status(500).json({ error: 'Failed to delete fish' });
+  }
+});
+
+/**
+ * PATCH /api/admin/gacha/users/:id/fishes/:fishId
+ * Updates nickname or favorite flag for a user's fish
+ */
+router.patch('/admin/gacha/users/:id/fishes/:fishId', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const fishId = parseInt(req.params.fishId, 10);
+    const { nickname, is_favorite } = req.body;
+    const db = getDatabase();
+
+    const fish = db.prepare('SELECT id FROM user_fishes WHERE id = ? AND user_id = ?').get(fishId, userId);
+    if (!fish) return res.status(404).json({ error: 'Fish not found for this user' });
+
+    const updates = [];
+    const params = [];
+    if (nickname !== undefined) {
+      updates.push('nickname = ?');
+      params.push(nickname ? nickname.trim() : null);
+    }
+    if (is_favorite !== undefined) {
+      updates.push('is_favorite = ?');
+      params.push(is_favorite ? 1 : 0);
+    }
+
+    if (updates.length > 0) {
+      params.push(fishId, userId);
+      db.prepare(`UPDATE user_fishes SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...params);
+    }
+
+    const updated = db.prepare('SELECT * FROM user_fishes WHERE id = ?').get(fishId);
+    res.json({ ok: true, fish: updated });
+  } catch (err) {
+    console.error('[Admin Gacha] Error updating fish:', err);
+    res.status(500).json({ error: 'Failed to update fish' });
+  }
+});
+
+/**
+ * POST /api/admin/gacha/users/:id/reset-tank
+ * Configurable transactional reset of user tank
+ */
+router.post('/admin/gacha/users/:id/reset-tank', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const {
+      delete_fishes = false,
+      reset_water = false,
+      reset_pity = false,
+      reset_food = false
+    } = req.body;
+    const db = getDatabase();
+
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const transaction = db.transaction(() => {
+      if (delete_fishes) {
+        db.prepare('DELETE FROM user_fishes WHERE user_id = ?').run(userId);
+      }
+
+      const ecoUpdates = [];
+      if (reset_water) ecoUpdates.push('water_quality = 100');
+      if (reset_pity) ecoUpdates.push('pity_counter_epic = 0, pity_counter_legendary = 0');
+      if (reset_food) ecoUpdates.push('food_flakes = 5, super_pellets = 1');
+
+      if (ecoUpdates.length > 0) {
+        db.prepare('INSERT OR IGNORE INTO user_ecosystem (user_id) VALUES (?)').run(userId);
+        db.prepare(`UPDATE user_ecosystem SET ${ecoUpdates.join(', ')} WHERE user_id = ?`).run(userId);
+      }
+    });
+
+    transaction();
+
+    const ecosystem = db.prepare('SELECT * FROM user_ecosystem WHERE user_id = ?').get(userId);
+    const fishes_count = db.prepare('SELECT COUNT(*) as count FROM user_fishes WHERE user_id = ?').get(userId).count;
+
+    res.json({ ok: true, ecosystem, fishes_count });
+  } catch (err) {
+    console.error('[Admin Gacha] Error resetting tank:', err);
+    res.status(500).json({ error: 'Failed to reset user tank' });
+  }
+});
+
 module.exports = router;
