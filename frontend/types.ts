@@ -366,3 +366,82 @@ export interface UserTitle {
   winning_team_name?: string;
   user_points?: number;
 }
+
+// Gacha & Ecosystem Types
+export interface VisualTraits {
+  primary_color: string;
+  secondary_color: string;
+  scale: number;
+  glow: boolean;
+  body_type: string;
+}
+
+export interface GachaSpecies {
+  id: string;
+  name: string;
+  depth_zone: 'sunlit' | 'twilight' | 'abyssal';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  drop_weight?: number;
+  description: string;
+  visual_traits: VisualTraits;
+  is_discovered?: boolean;
+  caught_count?: number;
+  first_caught_at?: string | null;
+}
+
+export interface UserEcosystem {
+  user_id: number;
+  tickets: number;
+  food_flakes: number;
+  super_pellets: number;
+  water_quality: number;
+  health_status: 'thriving' | 'stable' | 'distressed' | 'dormant';
+  last_fed_at: string;
+  last_decay_at: string;
+  pity_counter_epic: number;
+  pity_counter_legendary: number;
+  total_pulls: number;
+}
+
+export interface UserFish {
+  user_fish_id: number;
+  species_id: string;
+  name: string;
+  nickname?: string | null;
+  depth_zone: 'sunlit' | 'twilight' | 'abyssal';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  description: string;
+  visual_traits: VisualTraits;
+  status: 'active' | 'dormant';
+  caught_at: string;
+  is_favorite: number;
+}
+
+export interface EcosystemResponse {
+  ecosystem: UserEcosystem;
+  fishes: UserFish[];
+}
+
+export interface GachaPullResult {
+  user_fish_id: number;
+  species_id: string;
+  name: string;
+  depth_zone: 'sunlit' | 'twilight' | 'abyssal';
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  description: string;
+  visual_traits: VisualTraits;
+  is_new_discovery: boolean;
+}
+
+export interface GachaPullResponse {
+  results: GachaPullResult[];
+  updated_ecosystem: UserEcosystem;
+  extra_flakes_awarded: number;
+}
+
+export interface CodexResponse {
+  species: GachaSpecies[];
+  total_species: number;
+  total_discovered: number;
+  completion_percentage: number;
+}
