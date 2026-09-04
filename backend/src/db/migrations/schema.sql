@@ -837,5 +837,54 @@ CREATE TABLE IF NOT EXISTS user_email_preferences (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Gacha & Ecosystem Feature Schema
+CREATE TABLE IF NOT EXISTS gacha_species (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    depth_zone TEXT NOT NULL CHECK(depth_zone IN ('sunlit', 'twilight', 'abyssal')),
+    rarity TEXT NOT NULL CHECK(rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
+    drop_weight INTEGER NOT NULL,
+    description TEXT NOT NULL,
+    visual_traits TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_ecosystem (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    tickets INTEGER NOT NULL DEFAULT 0,
+    food_flakes INTEGER NOT NULL DEFAULT 5,
+    super_pellets INTEGER NOT NULL DEFAULT 1,
+    water_quality INTEGER NOT NULL DEFAULT 100,
+    last_fed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_decay_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    pity_counter_epic INTEGER NOT NULL DEFAULT 0,
+    pity_counter_legendary INTEGER NOT NULL DEFAULT 0,
+    total_pulls INTEGER NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_fishes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    species_id TEXT NOT NULL REFERENCES gacha_species(id) ON DELETE CASCADE,
+    nickname TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'dormant')),
+    caught_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_favorite INTEGER NOT NULL DEFAULT 0 CHECK(is_favorite IN (0, 1))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_fishes_user ON user_fishes(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_fishes_species ON user_fishes(species_id);
+
+CREATE TABLE IF NOT EXISTS gacha_pull_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    species_id TEXT NOT NULL REFERENCES gacha_species(id),
+    pull_type TEXT NOT NULL DEFAULT 'single' CHECK(pull_type IN ('single', 'multi')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_gacha_pull_logs_user ON gacha_pull_logs(user_id);
+
 
 
