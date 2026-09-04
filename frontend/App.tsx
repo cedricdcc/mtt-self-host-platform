@@ -40,6 +40,7 @@ import AdminReputationRules from './pages/admin/AdminReputationRules';
 import AdminMailSettings from './pages/admin/AdminMailSettings';
 import AdminAchievements from './pages/admin/AdminAchievements';
 import AdminEvents from './pages/admin/AdminEvents';
+import AdminGacha from './pages/admin/AdminGacha';
 import Banned from './pages/Banned';
 import { EventsHubPage } from './pages/EventsHubPage';
 import EventDetailPage from './pages/EventDetailPage';
@@ -48,6 +49,7 @@ import Oceanarium from './pages/Oceanarium';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import OceanariumRoute from './components/OceanariumRoute';
 import { useAuth } from './context/AuthContext';
 import BlogIndex from './pages/blog/BlogIndex';
 import LostInTranslation from './pages/blog/LostInTranslation';
@@ -261,10 +263,15 @@ const App: React.FC = () => {
             <AdminEvents />
           </AdminRoute>
         } />
-        <Route path="/oceanarium" element={
+        <Route path="/admin/gacha" element={
           <AdminRoute>
-            <Oceanarium />
+            <AdminGacha />
           </AdminRoute>
+        } />
+        <Route path="/oceanarium" element={
+          <OceanariumRoute>
+            <Oceanarium />
+          </OceanariumRoute>
         } />
 
         <Route path="*" element={<NotFound />} />

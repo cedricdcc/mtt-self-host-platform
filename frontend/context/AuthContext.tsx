@@ -92,8 +92,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               name: data.name || data.orcid,
               avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name || data.orcid)}&background=0ea5e9&color=fff`,
               token: data.access_token, // For compatibility with existing code
-              isAdmin: data.is_admin || false, // Use is_admin from backend session
-              isSuperAdmin: data.is_superadmin || false, // Use is_superadmin from backend session
+              isAdmin: Boolean(data.is_admin), // Use is_admin from backend session
+              isSuperAdmin: Boolean(data.is_superadmin), // Use is_superadmin from backend session
+              hasGachaAccess: Boolean(data.has_gacha_access || data.is_admin || data.is_superadmin),
               orcid: data.orcid, // Keep ORCID for reference
               reputation: data.reputation, // Include reputation if available
               email: data.email || null, // Capture email address

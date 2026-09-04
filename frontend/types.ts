@@ -33,6 +33,7 @@ export interface User {
   token: string;
   isAdmin?: boolean;
   isSuperAdmin?: boolean;
+  hasGachaAccess?: boolean;
   orcid?: string;       // ORCID iD (still supported)
   reputation?: number;  // User reputation score
   email?: string | null; // User email address (if configured)
@@ -444,4 +445,29 @@ export interface CodexResponse {
   total_species: number;
   total_discovered: number;
   completion_percentage: number;
+}
+
+export interface AdminGachaUser {
+  id: number;
+  username: string;
+  is_admin: number;
+  is_superadmin: boolean;
+  has_gacha_access: number;
+  dive_tickets: number;
+  tickets?: number;
+  food_flakes: number;
+  super_pellets: number;
+  water_quality: number;
+  fishes_count: number;
+}
+
+export interface AdminGachaSummary {
+  total_users_with_access: number;
+  total_tickets_in_circulation: number;
+  total_fishes_caught: number;
+}
+
+export interface AdminGachaResponse {
+  users: AdminGachaUser[];
+  summary: AdminGachaSummary;
 }
