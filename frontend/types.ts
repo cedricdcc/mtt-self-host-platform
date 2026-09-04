@@ -34,6 +34,8 @@ export interface User {
   isAdmin?: boolean;
   isSuperAdmin?: boolean;
   hasGachaAccess?: boolean;
+  is_admin?: number | boolean;
+  is_superadmin?: boolean;
   orcid?: string;       // ORCID iD (still supported)
   reputation?: number;  // User reputation score
   email?: string | null; // User email address (if configured)

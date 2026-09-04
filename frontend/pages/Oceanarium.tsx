@@ -9,13 +9,15 @@ import MarineCodex from '../components/oceanarium/MarineCodex';
 import toast from 'react-hot-toast';
 
 export const Oceanarium: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [ecosystemData, setEcosystemData] = useState<EcosystemResponse | null>(null);
   const [codexData, setCodexData] = useState<CodexResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'oceanarium' | 'dive' | 'codex'>('oceanarium');
   const [foodMode, setFoodMode] = useState<'none' | 'flake' | 'super_pellet'>('flake');
+
+  const hasAccess = Boolean(user?.isAdmin || user?.isSuperAdmin || user?.hasGachaAccess || user?.is_admin === 1);
 
   const loadData = async () => {
     try {
@@ -34,10 +36,10 @@ export const Oceanarium: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.is_admin === 1) {
+    if (hasAccess) {
       loadData();
     }
-  }, [user]);
+  }, [hasAccess]);
 
   const handleFeed = async (foodType: 'flake' | 'super_pellet') => {
     try {
@@ -75,8 +77,8 @@ export const Oceanarium: React.FC = () => {
     );
   }
 
-  // 2. Admin Guard Check
-  if (!user || user.is_admin !== 1) {
+  // 2. Access Guard Check
+  if (!user || !hasAccess) {
     return (
       <div className="max-w-xl mx-auto my-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-2xl">
         <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
@@ -84,7 +86,7 @@ export const Oceanarium: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold text-white mb-2">Undersea Laboratory</h2>
         <p className="text-sm text-slate-400 leading-relaxed mb-6">
-          Access to the living Oceanarium, Coral Habitats, and Gacha Dive Station is currently restricted to platform administrators during preview and balancing.
+          Access to the living Oceanarium, Coral Habitats, and Gacha Dive Station is currently restricted to platform administrators and authorized users.
         </p>
         <span className="text-xs font-mono px-3 py-1 bg-slate-800 text-slate-400 rounded-full border border-slate-700">
           Admin Access Required

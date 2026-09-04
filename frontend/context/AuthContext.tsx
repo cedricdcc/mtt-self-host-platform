@@ -95,6 +95,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               isAdmin: Boolean(data.is_admin || data.is_superadmin), // Superadmins are always admins
               isSuperAdmin: Boolean(data.is_superadmin), // Use is_superadmin from backend session
               hasGachaAccess: Boolean(data.has_gacha_access || data.is_admin || data.is_superadmin),
+              is_admin: (data.is_admin || data.is_superadmin) ? 1 : 0,
+              is_superadmin: Boolean(data.is_superadmin),
               orcid: data.orcid, // Keep ORCID for reference
               reputation: data.reputation, // Include reputation if available
               email: data.email || null, // Capture email address
