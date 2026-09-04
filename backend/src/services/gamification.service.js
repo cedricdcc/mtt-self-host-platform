@@ -553,6 +553,14 @@ function updateDailyGoalProgress(userIdentifier, increment = 1) {
   if (shouldReward && updatedGoal.rewarded === 1) {
     applyReputationChange(userId, 5, 'daily_goal_completed');
     
+    // Award ecosystem bonus ticket, super pellet, and top up water quality
+    try {
+      const ecosystemService = require("./ecosystem.service");
+      ecosystemService.awardRewards(userId, { tickets: 1, super_pellets: 1, water_quality: 100 });
+    } catch (err) {
+      console.log("Could not award ecosystem daily goal rewards:", err.message);
+    }
+
     // Log activity
     try {
       db.prepare(

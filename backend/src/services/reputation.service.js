@@ -549,12 +549,19 @@ function applyReward(userIdentifier, reward, reason, translationId) {
  * @returns {{ applied: boolean, reward: number, newReputation: number | null }}
  */
 function applyApprovalReward(userIdentifier, translationId) {
-  return applyReward(
+  const result = applyReward(
     userIdentifier,
     REPUTATION_REWARDS.TRANSLATION_APPROVED,
     "translation_approved",
     translationId
   );
+  try {
+    const ecosystemService = require("./ecosystem.service");
+    ecosystemService.awardRewards(userIdentifier, { tickets: 1, super_pellets: 1 });
+  } catch (err) {
+    console.error("[Ecosystem Reward Hook Error]:", err.message);
+  }
+  return result;
 }
 
 /**
@@ -579,12 +586,19 @@ function applyMergeReward(userIdentifier, translationId) {
  * @returns {{ applied: boolean, reward: number, newReputation: number | null }}
  */
 function applyCreationReward(userIdentifier, translationId) {
-  return applyReward(
+  const result = applyReward(
     userIdentifier,
     REPUTATION_REWARDS.TRANSLATION_CREATED,
     "translation_created",
     translationId
   );
+  try {
+    const ecosystemService = require("./ecosystem.service");
+    ecosystemService.awardRewards(userIdentifier, { food_flakes: 1 });
+  } catch (err) {
+    console.error("[Ecosystem Reward Hook Error]:", err.message);
+  }
+  return result;
 }
 
 /**
