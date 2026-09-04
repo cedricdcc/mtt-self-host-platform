@@ -851,6 +851,7 @@ CREATE TABLE IF NOT EXISTS gacha_species (
 
 CREATE TABLE IF NOT EXISTS user_ecosystem (
     user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    has_gacha_access INTEGER NOT NULL DEFAULT 0,
     tickets INTEGER NOT NULL DEFAULT 0,
     food_flakes INTEGER NOT NULL DEFAULT 5,
     super_pellets INTEGER NOT NULL DEFAULT 1,
@@ -862,6 +863,7 @@ CREATE TABLE IF NOT EXISTS user_ecosystem (
     total_pulls INTEGER NOT NULL DEFAULT 0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_user_ecosystem_access ON user_ecosystem(has_gacha_access);
 
 CREATE TABLE IF NOT EXISTS user_fishes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
