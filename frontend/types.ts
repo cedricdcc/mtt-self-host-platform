@@ -473,3 +473,24 @@ export interface AdminGachaResponse {
   users: AdminGachaUser[];
   summary: AdminGachaSummary;
 }
+
+export interface AdminUserFish {
+  id: number;
+  user_id: number;
+  species_id: string;
+  nickname: string | null;
+  status: 'active' | 'dormant';
+  caught_at: string;
+  is_favorite: number;
+  name: string;
+  depth_zone: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  visual_traits: string;
+  description: string;
+}
+
+export interface AdminUserTankResponse {
+  ecosystem: UserEcosystem;
+  fishes: AdminUserFish[];
+}
+

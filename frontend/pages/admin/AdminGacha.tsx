@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { backendApi } from '../../services/api';
 import { AdminGachaUser, AdminGachaResponse, AdminGachaSummary } from '../../types';
+import AdminTankDrawer from '../../components/admin/AdminTankDrawer';
 import toast from 'react-hot-toast';
 
 const AdminGacha: React.FC = () => {
@@ -28,8 +29,9 @@ const AdminGacha: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  // Modal State
+  // Modal & Drawer State
   const [selectedUser, setSelectedUser] = useState<AdminGachaUser | null>(null);
+  const [tankUser, setTankUser] = useState<AdminGachaUser | null>(null);
   const [ticketsInput, setTicketsInput] = useState<number>(5);
   const [flakesInput, setFlakesInput] = useState<number>(0);
   const [pelletsInput, setPelletsInput] = useState<number>(0);
@@ -425,13 +427,23 @@ const AdminGacha: React.FC = () => {
 
                       {/* Actions */}
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => handleOpenModal(u)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
-                        >
-                          <Sliders size={13} />
-                          <span>Manage</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => setTankUser(u)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-cyan-600 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors shadow-sm"
+                            title="Manage user aquarium and caught fishes"
+                          >
+                            <Fish size={13} />
+                            <span>Manage Tank</span>
+                          </button>
+                          <button
+                            onClick={() => handleOpenModal(u)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm"
+                          >
+                            <Sliders size={13} />
+                            <span>Resources</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -544,6 +556,23 @@ const AdminGacha: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Admin Tank Drawer */}
+      {tankUser && (
+        <AdminTankDrawer
+          user={tankUser}
+          onClose={() => setTankUser(null)}
+          onUpdate={(userId, updatedEco, fishesCount) => {
+            setUsers(prev => prev.map(u => u.id === userId ? {
+              ...u,
+              water_quality: updatedEco.water_quality,
+              food_flakes: updatedEco.food_flakes,
+              super_pellets: updatedEco.super_pellets,
+              fishes_count: fishesCount
+            } : u));
+          }}
+        />
       )}
     </div>
   );
