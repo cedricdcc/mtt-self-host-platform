@@ -43,6 +43,7 @@ import AdminEvents from './pages/admin/AdminEvents';
 import Banned from './pages/Banned';
 import { EventsHubPage } from './pages/EventsHubPage';
 import EventDetailPage from './pages/EventDetailPage';
+import Oceanarium from './pages/Oceanarium';
 
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -258,6 +259,11 @@ const App: React.FC = () => {
         <Route path="/admin/events" element={
           <AdminRoute>
             <AdminEvents />
+          </AdminRoute>
+        } />
+        <Route path="/oceanarium" element={
+          <AdminRoute>
+            <Oceanarium />
           </AdminRoute>
         } />
 

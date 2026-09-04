@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Menu, X, Sun, Moon, LogOut, User as UserIcon, ShieldCheck, Zap, Settings as SettingsIcon, AlertCircle } from 'lucide-react';
+import { Menu, X, Sun, Moon, LogOut, User as UserIcon, ShieldCheck, Zap, Settings as SettingsIcon, AlertCircle, Fish } from 'lucide-react';
 import { parse, format, now } from '@/src/utils/datetime';
 import CommunityGoalWidget from './CommunityGoalWidget';
 import BottomNav from './BottomNav';
@@ -163,10 +163,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               {isAuthenticated ? (
                 <>
                   <Link to="/browse" data-tour="nav-browse" className={isActive('/browse')}>Browse</Link>
-                  {user?.isAdmin && (
-                    <Link to="/admin" className={`${isActive('/admin')} flex items-center gap-1`}>
-                       <ShieldCheck size={16} /> Admin
-                    </Link>
+                  {(user?.isAdmin || user?.is_admin === 1) && (
+                    <>
+                      <Link to="/admin" className={`${isActive('/admin')} flex items-center gap-1`}>
+                         <ShieldCheck size={16} /> Admin
+                      </Link>
+                      <Link to="/oceanarium" className={`${isActive('/oceanarium')} flex items-center gap-1.5`}>
+                         <Fish size={16} className="text-cyan-500" /> Oceanarium
+                      </Link>
+                    </>
                   )}
                 </>
               ) : (
@@ -243,6 +248,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         >
                           Documentation
                         </Link>
+                        {(user?.isAdmin || user?.is_admin === 1) && (
+                          <Link 
+                            to="/oceanarium" 
+                            className="block px-4 py-2.5 text-sm text-cyan-600 dark:text-cyan-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-2 font-medium"
+                          >
+                            <Fish size={16} />
+                            <span>Oceanarium</span>
+                          </Link>
+                        )}
                         <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
                         <button 
                           onClick={() => {
