@@ -36,8 +36,14 @@ export class FishBoidsSystem {
     abyssal: { min: -18, max: -6 }
   };
 
+  public isDesktopMode: boolean = false;
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
+  }
+
+  public setDesktopMode(enabled: boolean): void {
+    this.isDesktopMode = enabled;
   }
 
   /**
@@ -113,7 +119,7 @@ export class FishBoidsSystem {
   /**
    * Main simulation tick
    */
-  public update(delta: number, time: number, foodPellets: FoodItem[] = []): void {
+  public update(delta: number, time: number, foodPellets: FoodItem[] = [], focusOrigin?: THREE.Vector3): void {
     const targetQuat = new THREE.Quaternion();
 
     this.fishes.forEach((boid) => {
@@ -157,10 +163,15 @@ export class FishBoidsSystem {
         const distToTarget = mesh.position.distanceTo(boid.target);
 
         if (boid.targetChangeTimer <= 0 || distToTarget < 3.0) {
+          const ox = this.isDesktopMode && focusOrigin ? focusOrigin.x : 0;
+          const oz = this.isDesktopMode && focusOrigin ? focusOrigin.z : 0;
+          const rx = this.isDesktopMode ? 32 : this.boundsX * 1.8;
+          const rz = this.isDesktopMode ? 32 : this.boundsZ * 1.8;
+
           boid.target.set(
-            (Math.random() - 0.5) * (this.boundsX * 1.8),
+            ox + (Math.random() - 0.5) * rx,
             Math.random() * (zone.max - zone.min) + zone.min,
-            (Math.random() - 0.5) * (this.boundsZ * 1.8)
+            oz + (Math.random() - 0.5) * rz
           );
           boid.targetChangeTimer = 4.0 + Math.random() * 5.0;
         }
@@ -170,11 +181,20 @@ export class FishBoidsSystem {
         boid.velocity.lerp(steerDir.multiplyScalar(baseSpeed), 0.05);
       }
 
-      // Depth and tank boundaries repulsion
-      if (mesh.position.x < -this.boundsX) boid.velocity.x += 1.5;
-      if (mesh.position.x > this.boundsX) boid.velocity.x -= 1.5;
-      if (mesh.position.z < -this.boundsZ) boid.velocity.z += 1.5;
-      if (mesh.position.z > this.boundsZ) boid.velocity.z -= 1.5;
+      // Depth and boundaries repulsion (adapts to infinite world in desktop mode)
+      if (this.isDesktopMode && focusOrigin) {
+        const dX = mesh.position.x - focusOrigin.x;
+        const dZ = mesh.position.z - focusOrigin.z;
+        if (dX < -28) boid.velocity.x += 1.8;
+        if (dX > 28) boid.velocity.x -= 1.8;
+        if (dZ < -28) boid.velocity.z += 1.8;
+        if (dZ > 28) boid.velocity.z -= 1.8;
+      } else {
+        if (mesh.position.x < -this.boundsX) boid.velocity.x += 1.5;
+        if (mesh.position.x > this.boundsX) boid.velocity.x -= 1.5;
+        if (mesh.position.z < -this.boundsZ) boid.velocity.z += 1.5;
+        if (mesh.position.z > this.boundsZ) boid.velocity.z -= 1.5;
+      }
       if (mesh.position.y < zone.min) boid.velocity.y += 1.2;
       if (mesh.position.y > zone.max) boid.velocity.y -= 1.2;
 

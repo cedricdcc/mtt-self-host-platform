@@ -201,6 +201,8 @@ export class ThreeGameDirector {
     if (mode !== 'INSPECTING_FISH') {
       this.detachReticle();
     }
+    this.environment.setDesktopMode(mode === 'DESKTOP_MODE');
+    this.boidsSystem.setDesktopMode(mode === 'DESKTOP_MODE');
     this.cameraDirector.setMode(mode);
     if (this.callbacks.onModeChanged) {
       this.callbacks.onModeChanged(mode);
@@ -339,8 +341,10 @@ export class ThreeGameDirector {
       const delta = Math.min(this.clock.getDelta(), 0.1);
       const time = this.clock.getElapsedTime();
 
-      // 1. Update Environment
-      this.environment.update(delta, time);
+      const subPos = this.submarineDirector.mesh.position;
+
+      // 1. Update Environment (infinite terrain & sky tracking in desktop mode)
+      this.environment.update(delta, time, subPos);
 
       // 2. Update Seabed Foliage and Dynamic Bubbles
       this.foliageSystem.update(delta, time);
@@ -349,8 +353,8 @@ export class ThreeGameDirector {
       // 3. Update Food Pellets
       this.feedingPhysics.update(delta);
 
-      // 4. Update Boids Swimming & Food Chasing
-      this.boidsSystem.update(delta, time, this.feedingPhysics.getPellets());
+      // 4. Update Boids Swimming & Food Chasing (anchored to submarine in desktop mode)
+      this.boidsSystem.update(delta, time, this.feedingPhysics.getPellets(), subPos);
 
       // 5. Check Mouth Collisions and emit celebratory mouth bubble puffs
       const feedEvents = this.feedingPhysics.checkFishFeeding(this.boidsSystem.getAllFishes());
