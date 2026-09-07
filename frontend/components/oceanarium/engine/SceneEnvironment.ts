@@ -26,7 +26,6 @@ export class SceneEnvironment {
   public sandFloor: THREE.Mesh | null = null;
   public waterSurface: THREE.Mesh | null = null;
   public dioramaPedestal: THREE.Mesh | null = null;
-  public cornerBrackets: THREE.Group | null = null;
   public depthTicks: THREE.Group | null = null;
   public glassPanels: THREE.Group | null = null;
 
@@ -157,24 +156,6 @@ export class SceneEnvironment {
     this.waterSurface.position.set(0, HALF_CUBE, 0);
     this.scene.add(this.waterSurface);
 
-    // 6. Brushed Titanium Corner Brackets at 8 Vertices
-    this.cornerBrackets = new THREE.Group();
-    const bracketGeo = new THREE.BoxGeometry(2.5, 2.5, 2.5);
-    const bracketMat = new THREE.MeshToonMaterial({
-      color: 0x334155
-    });
-
-    const signs = [-1, 1];
-    signs.forEach((sx) => {
-      signs.forEach((sy) => {
-        signs.forEach((sz) => {
-          const bracket = new THREE.Mesh(bracketGeo, bracketMat);
-          bracket.position.set(sx * HALF_CUBE, sy * HALF_CUBE, sz * HALF_CUBE);
-          this.cornerBrackets!.add(bracket);
-        });
-      });
-    });
-    this.scene.add(this.cornerBrackets);
 
     // 7. Etched Depth Scale Ticks along 4 Vertical Pillars
     this.depthTicks = new THREE.Group();
@@ -310,7 +291,6 @@ export class SceneEnvironment {
     if (this.vivariumFrame) this.vivariumFrame.visible = !enabled;
     if (this.sandFloor) this.sandFloor.visible = !enabled;
     if (this.dioramaPedestal) this.dioramaPedestal.visible = !enabled;
-    if (this.cornerBrackets) this.cornerBrackets.visible = !enabled;
     if (this.depthTicks) this.depthTicks.visible = !enabled;
     if (this.glassPanels) this.glassPanels.visible = !enabled;
 
@@ -448,9 +428,6 @@ export class SceneEnvironment {
       this.dioramaPedestal.geometry.dispose();
       (this.dioramaPedestal.material as THREE.Material).dispose();
       this.scene.remove(this.dioramaPedestal);
-    }
-    if (this.cornerBrackets) {
-      this.scene.remove(this.cornerBrackets);
     }
     if (this.depthTicks) {
       this.scene.remove(this.depthTicks);

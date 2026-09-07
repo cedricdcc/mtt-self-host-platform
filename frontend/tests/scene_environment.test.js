@@ -16,8 +16,8 @@ function run() {
 
   // Verify true cube dimensions (40x40x40)
   assert.ok(content.includes('40, 40, 40') || (content.includes('40') && content.includes('CUBE_SIZE')), 'Must create 40x40x40 true cube vivarium bounds');
-  assert.ok(content.includes('pedestal') || content.includes('Pedestal'), 'Must create diorama pedestal base');
-  assert.ok(content.includes('bracket') || content.includes('Bracket'), 'Must create corner brackets');
+  // Verify corner bracket cubes are removed for clean rimless glass aesthetic
+  assert.ok(!content.includes('cornerBrackets') && !content.includes('bracketGeo'), 'Must NOT have corner brackets or dark corner cubes');
   assert.ok(content.includes('depthTicks') || content.includes('DepthTick') || content.includes('tickMesh'), 'Must create etched depth tick marks on vertical pillars');
   assert.ok(content.includes('glassPanels') || content.includes('GlassPanel') || content.includes('acrylic') || content.includes('glassMaterial'), 'Must create translucent acrylic glass faces');
 
