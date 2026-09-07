@@ -3,6 +3,12 @@ import { SubmarineDirector, ObservedFishData } from './SubmarineDirector';
 
 export type CameraMode = 'STANDARD_VIEW' | 'DESKTOP_MODE' | 'INSPECTING_FISH';
 
+// 2.5D Isometric Vivarium View Constants
+export const ISOMETRIC_RADIUS = 55.0;
+export const ISOMETRIC_THETA = Math.PI / 4; // 45 degrees
+export const ISOMETRIC_PHI = Math.PI / 3.2; // ~56 degrees elevation
+export const ISOMETRIC_CENTER = new THREE.Vector3(0, 0, 0);
+
 /**
  * Manages camera states, smooth lerping, depth snaps, and 3rd-person cinematic submarine chase.
  */
@@ -10,24 +16,43 @@ export class CameraDirector {
   public camera: THREE.PerspectiveCamera;
   private mode: CameraMode = 'STANDARD_VIEW';
 
-  // Standard Orbit View state
-  private targetPosition: THREE.Vector3 = new THREE.Vector3(0, 12, 34);
-  private targetLookAt: THREE.Vector3 = new THREE.Vector3(0, 10, 0);
-  private currentLookAt: THREE.Vector3 = new THREE.Vector3(0, 10, 0);
+  // Standard Orbit View state (Initialized to 2.5D Isometric Vivarium perspective)
+  private targetPosition: THREE.Vector3 = new THREE.Vector3();
+  private targetLookAt: THREE.Vector3 = ISOMETRIC_CENTER.clone();
+  private currentLookAt: THREE.Vector3 = ISOMETRIC_CENTER.clone();
 
   // Mouse orbit dragging state
   public isDragging: boolean = false;
   private previousMousePosition = { x: 0, y: 0 };
-  private spherical: THREE.Spherical = new THREE.Spherical(36, Math.PI / 2.2, 0);
-  private centerOffset: THREE.Vector3 = new THREE.Vector3(0, 8, 0);
+  private spherical: THREE.Spherical = new THREE.Spherical(ISOMETRIC_RADIUS, ISOMETRIC_PHI, ISOMETRIC_THETA);
+  private centerOffset: THREE.Vector3 = ISOMETRIC_CENTER.clone();
+
+  // Smooth View Reset State
+  private isResetting: boolean = false;
+  private resetProgress: number = 0;
+  private resetDuration: number = 1.0;
+  private resetStartSpherical: THREE.Spherical = new THREE.Spherical();
+  private resetStartCenter: THREE.Vector3 = new THREE.Vector3();
 
   // Focus target for inspection
   private inspectingTarget: THREE.Object3D | null = null;
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
-    this.camera.position.set(0, 12, 34);
-    this.camera.lookAt(this.targetLookAt);
+    const initialPos = new THREE.Vector3().setFromSpherical(this.spherical).add(this.centerOffset);
+    this.camera.position.copy(initialPos);
+    this.camera.lookAt(this.currentLookAt);
+  }
+
+  public resetToIsometric(duration = 1.0): void {
+    this.mode = 'STANDARD_VIEW';
+    this.inspectingTarget = null;
+    this.isDragging = false;
+    this.isResetting = true;
+    this.resetProgress = 0;
+    this.resetDuration = Math.max(0.1, duration);
+    this.resetStartSpherical.copy(this.spherical);
+    this.resetStartCenter.copy(this.centerOffset);
   }
 
   public setMode(mode: CameraMode): void {
@@ -116,6 +141,22 @@ export class CameraDirector {
    * Standard View camera update
    */
   public updateStandardCamera(delta: number): void {
+    if (this.isResetting) {
+      this.resetProgress += delta / this.resetDuration;
+      const t = Math.min(1.0, this.resetProgress);
+      // Cubic ease out: 1 - (1 - t)^3
+      const easeOut = 1 - Math.pow(1 - t, 3);
+
+      this.spherical.radius = THREE.MathUtils.lerp(this.resetStartSpherical.radius, ISOMETRIC_RADIUS, easeOut);
+      this.spherical.phi = THREE.MathUtils.lerp(this.resetStartSpherical.phi, ISOMETRIC_PHI, easeOut);
+      this.spherical.theta = THREE.MathUtils.lerp(this.resetStartSpherical.theta, ISOMETRIC_THETA, easeOut);
+      this.centerOffset.lerpVectors(this.resetStartCenter, ISOMETRIC_CENTER, easeOut);
+
+      if (t >= 1.0) {
+        this.isResetting = false;
+      }
+    }
+
     // Convert spherical coordinates to cartesian target
     const targetPos = new THREE.Vector3().setFromSpherical(this.spherical).add(this.centerOffset);
     this.camera.position.lerp(targetPos, 0.08);
