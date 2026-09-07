@@ -27,13 +27,13 @@ export class FishBoidsSystem {
   private scene: THREE.Scene;
   private fishes: Map<number, BoidFish> = new Map();
 
-  // Bounds
-  public readonly boundsX = 24;
-  public readonly boundsZ = 16;
+  // Symmetrical 1:1:1 Cube Bounds
+  public readonly boundsX = 18;
+  public readonly boundsZ = 18;
   public readonly zoneY: Record<string, { min: number; max: number }> = {
-    sunlit: { min: 8, max: 26 },
-    twilight: { min: -10, max: 8 },
-    abyssal: { min: -28, max: -10 }
+    sunlit: { min: 6, max: 18 },
+    twilight: { min: -6, max: 6 },
+    abyssal: { min: -18, max: -6 }
   };
 
   constructor(scene: THREE.Scene) {

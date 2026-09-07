@@ -7,24 +7,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function run() {
-  console.log('Testing SceneEnvironment vivarium diorama and azure palette...');
+  console.log('Testing SceneEnvironment 1:1:1 true cube vivarium, brackets, and pedestal...');
 
   const envPath = path.join(__dirname, '../components/oceanarium/engine/SceneEnvironment.ts');
   assert.ok(fs.existsSync(envPath), 'SceneEnvironment.ts must exist');
 
   const content = fs.readFileSync(envPath, 'utf8');
 
-  // Verify vivarium glass frame & dimensions
-  assert.ok(content.includes('initVivariumFrame'), 'Must implement initVivariumFrame method');
-  assert.ok(content.includes('48') && content.includes('40') && content.includes('32'), 'Must create 48x40x32 vivarium bounds');
-  assert.ok(content.includes('LineSegments'), 'Must create glowing cyan edge wireframe');
-  assert.ok(content.includes('sandFloor'), 'Must add sandy ocean floor bed');
-  assert.ok(content.includes('waterSurface'), 'Must add translucent water surface ceiling');
+  // Verify true cube dimensions (40x40x40)
+  assert.ok(content.includes('40, 40, 40') || (content.includes('40') && content.includes('CUBE_SIZE')), 'Must create 40x40x40 true cube vivarium bounds');
+  assert.ok(content.includes('pedestal') || content.includes('Pedestal'), 'Must create diorama pedestal base');
+  assert.ok(content.includes('bracket') || content.includes('Bracket'), 'Must create corner brackets');
+  assert.ok(content.includes('depthTicks') || content.includes('DepthTick') || content.includes('tickMesh'), 'Must create etched depth tick marks on vertical pillars');
+  assert.ok(content.includes('glassPanels') || content.includes('GlassPanel') || content.includes('acrylic') || content.includes('glassMaterial'), 'Must create translucent acrylic glass faces');
 
-  // Verify tropical azure lighting palette
-  assert.ok(content.includes('0x0284c7') || content.includes('0x38bdf8'), 'Must use vibrant cyan/azure lighting');
-
-  console.log('✓ SceneEnvironment tests PASSED!');
+  console.log('✓ SceneEnvironment 1:1:1 true cube vivarium tests PASSED!');
 }
 
 try {

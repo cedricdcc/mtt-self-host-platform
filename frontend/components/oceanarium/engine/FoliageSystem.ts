@@ -65,15 +65,15 @@ export class FoliageSystem {
    * Generates procedural swaying kelp ribbons along the perimeter of the seabed
    */
   public createKelpForest(): void {
-    // Placement coordinates along rear perimeter and sides
+    // Placement coordinates along rear perimeter and sides (within [-18, 18])
     const kelpCoords = [
-      { x: -20, z: -12 }, { x: -16, z: -13 }, { x: -11, z: -12 },
-      { x: -6, z: -13 },  { x: 0, z: -12 },   { x: 7, z: -13 },
-      { x: 13, z: -12 },  { x: 18, z: -13 },  { x: 21, z: -10 },
+      { x: -17, z: -14 }, { x: -13, z: -15 }, { x: -8, z: -14 },
+      { x: -3, z: -15 },  { x: 2, z: -14 },   { x: 7, z: -15 },
+      { x: 12, z: -14 },  { x: 16, z: -15 },  { x: 17, z: -11 },
       // Left edge
-      { x: -21, z: -6 },  { x: -22, z: 2 },   { x: -20, z: 8 },
+      { x: -17, z: -7 },  { x: -17, z: 2 },   { x: -16, z: 8 },
       // Right edge
-      { x: 21, z: -4 },   { x: 22, z: 4 },    { x: 20, z: 9 }
+      { x: 17, z: -5 },   { x: 17, z: 3 },    { x: 16, z: 9 }
     ];
 
     const segmentHeight = 2.4;

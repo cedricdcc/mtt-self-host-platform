@@ -30,8 +30,8 @@ export class BubbleSystem {
 
   // Corner Aerators State
   public aerators: { baseX: number; baseZ: number }[] = [
-    { baseX: -18, baseZ: -10 },
-    { baseX: 18, baseZ: -10 }
+    { baseX: -17, baseZ: -17 },
+    { baseX: 17, baseZ: -17 }
   ];
   private aeratorBubbles: AeratorBubble[] = [];
   private aeratorPoints: THREE.Points;

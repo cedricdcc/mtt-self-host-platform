@@ -89,8 +89,8 @@ export class FeedingPhysics {
       p.mesh.rotation.x += delta * 1.5;
       p.mesh.rotation.y += delta * 2.0;
 
-      // Despawn if hit bottom floor
-      if (p.mesh.position.y < -30) {
+      // Despawn if hit bottom sand floor bed
+      if (p.mesh.position.y < -19.2) {
         this.scene.remove(p.mesh);
         this.pellets.splice(i, 1);
       }
