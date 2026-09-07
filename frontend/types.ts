@@ -388,6 +388,7 @@ export interface GachaSpecies {
   description: string;
   visual_traits: VisualTraits;
   is_discovered?: boolean;
+  discovered_shiny?: boolean;
   caught_count?: number;
   first_caught_at?: string | null;
 }
@@ -418,6 +419,7 @@ export interface UserFish {
   status: 'active' | 'dormant';
   caught_at: string;
   is_favorite: number;
+  is_shiny?: boolean | number;
 }
 
 export interface EcosystemResponse {
@@ -434,6 +436,7 @@ export interface GachaPullResult {
   description: string;
   visual_traits: VisualTraits;
   is_new_discovery: boolean;
+  is_shiny?: boolean;
 }
 
 export interface GachaPullResponse {
@@ -446,6 +449,7 @@ export interface CodexResponse {
   species: GachaSpecies[];
   total_species: number;
   total_discovered: number;
+  total_shiny_discovered?: number;
   completion_percentage: number;
 }
 
