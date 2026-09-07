@@ -108,7 +108,7 @@ function getEcosystemState(userIdentifier) {
 
   const fishes = db.prepare(`
     SELECT uf.id as user_fish_id, uf.species_id, uf.nickname, uf.status, uf.caught_at, uf.is_favorite, uf.is_shiny,
-           gs.name, gs.depth_zone, gs.rarity, gs.description, gs.visual_traits
+           gs.name, gs.depth_zone, gs.rarity, gs.description, gs.visual_traits, gs.model_url
     FROM user_fishes uf
     JOIN gacha_species gs ON uf.species_id = gs.id
     WHERE uf.user_id = ?

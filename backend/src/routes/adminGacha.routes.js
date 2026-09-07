@@ -186,18 +186,30 @@ router.get('/admin/gacha/users/:id/tank', requireAdmin, apiLimiter, (req, res) =
         uf.status,
         uf.caught_at,
         uf.is_favorite,
+        uf.is_shiny,
         s.name,
         s.depth_zone,
         s.rarity,
         s.visual_traits,
-        s.description
+        s.description,
+        s.model_url
       FROM user_fishes uf
       JOIN gacha_species s ON uf.species_id = s.id
       WHERE uf.user_id = ?
       ORDER BY uf.caught_at DESC, uf.id DESC
     `).all(userId);
 
-    res.json({ ecosystem: eco, fishes });
+    const formattedFishes = fishes.map(f => {
+      let traits = {};
+      try { traits = JSON.parse(f.visual_traits); } catch (e) {}
+      return {
+        ...f,
+        is_shiny: f.is_shiny ? 1 : 0,
+        visual_traits: traits
+      };
+    });
+
+    res.json({ ecosystem: eco, fishes: formattedFishes });
   } catch (err) {
     console.error('[Admin Gacha] Error fetching user tank:', err);
     res.status(500).json({ error: 'Failed to fetch user tank' });
@@ -311,4 +323,202 @@ router.post('/admin/gacha/users/:id/reset-tank', requireAdmin, apiLimiter, (req,
   }
 });
 
+/**
+ * GET /api/admin/gacha/species
+ * Returns list of all species with visual traits and model_url
+ */
+router.get('/admin/gacha/species', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const db = getDatabase();
+    const species = db.prepare(`
+      SELECT 
+        id,
+        name,
+        depth_zone,
+        rarity,
+        drop_weight,
+        description,
+        visual_traits,
+        model_url,
+        created_at
+      FROM gacha_species
+      ORDER BY 
+        CASE depth_zone 
+          WHEN 'sunlit' THEN 1 
+          WHEN 'twilight' THEN 2 
+          WHEN 'abyssal' THEN 3 
+          ELSE 4 
+        END,
+        CASE rarity
+          WHEN 'common' THEN 1
+          WHEN 'uncommon' THEN 2
+          WHEN 'rare' THEN 3
+          WHEN 'epic' THEN 4
+          WHEN 'legendary' THEN 5
+          ELSE 6
+        END,
+        name ASC
+    `).all();
+
+    const formatted = species.map(s => {
+      let traits = {};
+      try { traits = JSON.parse(s.visual_traits); } catch (e) {}
+      return {
+        ...s,
+        visual_traits: traits
+      };
+    });
+
+    res.json({ species: formatted });
+  } catch (err) {
+    console.error('[Admin Gacha] Error fetching species catalog:', err);
+    res.status(500).json({ error: 'Failed to fetch species catalog' });
+  }
+});
+
+/**
+ * PATCH /api/admin/gacha/species/:id
+ * Updates species model_url, visual traits, or metadata
+ */
+router.patch('/admin/gacha/species/:id', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const speciesId = req.params.id;
+    const { model_url, name, description, rarity, drop_weight, visual_traits } = req.body;
+    const db = getDatabase();
+
+    const existing = db.prepare('SELECT * FROM gacha_species WHERE id = ?').get(speciesId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Species not found' });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (model_url !== undefined) {
+      updates.push('model_url = ?');
+      params.push(model_url && typeof model_url === 'string' && model_url.trim() ? model_url.trim() : null);
+    }
+    if (name !== undefined) {
+      updates.push('name = ?');
+      params.push(name.trim());
+    }
+    if (description !== undefined) {
+      updates.push('description = ?');
+      params.push(description.trim());
+    }
+    if (rarity !== undefined) {
+      updates.push('rarity = ?');
+      params.push(rarity);
+    }
+    if (drop_weight !== undefined) {
+      updates.push('drop_weight = ?');
+      params.push(parseInt(drop_weight, 10) || 1);
+    }
+    if (visual_traits !== undefined) {
+      updates.push('visual_traits = ?');
+      params.push(typeof visual_traits === 'string' ? visual_traits : JSON.stringify(visual_traits));
+    }
+
+    if (updates.length > 0) {
+      params.push(speciesId);
+      db.prepare(`UPDATE gacha_species SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    }
+
+    const updated = db.prepare('SELECT * FROM gacha_species WHERE id = ?').get(speciesId);
+    let parsedTraits = {};
+    try { parsedTraits = JSON.parse(updated.visual_traits); } catch (e) {}
+
+    res.json({
+      ok: true,
+      species: {
+        ...updated,
+        visual_traits: parsedTraits
+      }
+    });
+  } catch (err) {
+    console.error('[Admin Gacha] Error updating species:', err);
+    res.status(500).json({ error: 'Failed to update species' });
+  }
+});
+
+/**
+ * POST /api/admin/gacha/users/:id/grant-fish
+ * Grants specific fish species with custom shiny flag and nickname to target user
+ */
+router.post('/admin/gacha/users/:id/grant-fish', requireAdmin, apiLimiter, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const { species_id, is_shiny = false, nickname = null, count = 1 } = req.body;
+    const db = getDatabase();
+
+    const user = db.prepare('SELECT id, username FROM users WHERE id = ?').get(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!species_id) {
+      return res.status(400).json({ error: 'species_id is required' });
+    }
+
+    const species = db.prepare('SELECT * FROM gacha_species WHERE id = ?').get(species_id);
+    if (!species) {
+      return res.status(400).json({ error: 'Invalid species_id' });
+    }
+
+    const grantCount = Math.max(1, Math.min(10, parseInt(count, 10) || 1));
+    const shinyVal = (is_shiny === true || is_shiny === 1 || is_shiny === '1' || is_shiny === 'true') ? 1 : 0;
+    const cleanNick = nickname && typeof nickname === 'string' ? nickname.trim() : null;
+
+    // Ensure ecosystem exists and has access
+    db.prepare(`
+      INSERT INTO user_ecosystem (user_id, has_gacha_access)
+      VALUES (?, 1)
+      ON CONFLICT(user_id) DO UPDATE SET has_gacha_access = 1
+    `).run(userId);
+
+    const insertedFishes = [];
+    const insertStmt = db.prepare(`
+      INSERT INTO user_fishes (user_id, species_id, nickname, is_shiny, status)
+      VALUES (?, ?, ?, ?, 'active')
+    `);
+
+    const transaction = db.transaction(() => {
+      for (let i = 0; i < grantCount; i++) {
+        const info = insertStmt.run(userId, species_id, cleanNick, shinyVal);
+        let traits = {};
+        try { traits = JSON.parse(species.visual_traits); } catch (e) {}
+        insertedFishes.push({
+          id: info.lastInsertRowid,
+          user_id: userId,
+          species_id,
+          nickname: cleanNick,
+          is_shiny: shinyVal,
+          status: 'active',
+          name: species.name,
+          depth_zone: species.depth_zone,
+          rarity: species.rarity,
+          description: species.description,
+          visual_traits: traits,
+          model_url: species.model_url
+        });
+      }
+    });
+
+    transaction();
+
+    const remainingCount = db.prepare('SELECT COUNT(*) as count FROM user_fishes WHERE user_id = ?').get(userId).count;
+
+    res.json({
+      ok: true,
+      grantedCount: grantCount,
+      fishes: insertedFishes,
+      totalFishes: remainingCount
+    });
+  } catch (err) {
+    console.error('[Admin Gacha] Error granting fish:', err);
+    res.status(500).json({ error: 'Failed to grant fish' });
+  }
+});
+
 module.exports = router;
+
