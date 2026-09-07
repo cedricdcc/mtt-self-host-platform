@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { UserFish } from '../../types';
 import { ThreeGameDirector, OceanariumMode } from './engine/ThreeGameDirector';
 import { ObservedFishData } from './engine/SubmarineDirector';
-import { Maximize2, Minimize2, Sparkles, Compass, Eye, X } from 'lucide-react';
+import { Maximize2, Minimize2, Sparkles, Compass, Eye, X, RotateCcw } from 'lucide-react';
 
 interface OceanariumCanvasProps {
   fishes: UserFish[];
@@ -112,11 +112,20 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [isDesktopMode]);
 
-  // Keyboard navigation & ESC listener for Desktop Mode
+  const handleResetView = () => {
+    if (directorRef.current) {
+      directorRef.current.resetCameraView(1.0);
+    }
+  };
+
+  // Keyboard navigation: ESC for Desktop Mode, R for Reset View
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isDesktopMode) {
         handleSetDesktopMode(false);
+      }
+      if ((e.key === 'r' || e.key === 'R') && !isDesktopMode) {
+        handleResetView();
       }
     };
 
@@ -243,17 +252,61 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
         </div>
       )}
 
-      {/* STANDARD VIEW: Top-Right Desktop Mode Button & Tooltip */}
+      {/* STANDARD VIEW: Top-Right Glass Controls Dock with Rich Tooltips */}
       {!isDesktopMode && (
-        <div className="absolute right-4 top-6 z-10 pointer-events-auto flex items-center gap-2">
-          <button
-            onClick={() => handleSetDesktopMode(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500/90 to-yellow-600/90 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs md:text-sm shadow-xl shadow-amber-500/20 backdrop-blur-md border border-amber-300/40 transition-all hover:scale-105"
-            title="Switch to ambient fullscreen Desktop Mode with autonomous submarine patrol"
-          >
-            <Maximize2 className="w-4 h-4" />
-            <span>Desktop Mode</span>
-          </button>
+        <div className="absolute right-4 top-6 z-10 pointer-events-auto flex items-center gap-2.5">
+          {/* Reset View Button */}
+          <div className="relative group">
+            <button
+              onClick={handleResetView}
+              className="flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-900/85 hover:bg-slate-800 text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400 shadow-lg shadow-cyan-950/40 backdrop-blur-md transition-all hover:scale-105 active:scale-95"
+              aria-label="Reset View"
+            >
+              <RotateCcw className="w-4 h-4 transition-transform group-hover:-rotate-90 duration-300" />
+            </button>
+
+            {/* Tooltip Card */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:flex flex-col w-56 p-3 rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl backdrop-blur-xl pointer-events-none z-30 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-white">Reset View</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-700/50 text-[10px] font-mono text-cyan-300">R</kbd>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                Smoothly re-aligns camera to the default 2.5D isometric diorama angle.
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop Mode Button */}
+          <div className="relative group">
+            <button
+              onClick={() => handleSetDesktopMode(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500/90 to-yellow-600/90 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs md:text-sm shadow-xl shadow-amber-500/20 backdrop-blur-md border border-amber-300/40 transition-all hover:scale-105 active:scale-95"
+              aria-label="Desktop Mode"
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>Desktop Mode</span>
+            </button>
+
+            {/* Tooltip Card */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:flex flex-col w-60 p-3 rounded-2xl bg-slate-950/95 border border-amber-500/40 shadow-2xl backdrop-blur-xl pointer-events-none z-30 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-amber-300">Desktop Mode</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700/50 text-[10px] font-mono text-amber-200">ESC</kbd>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                Ambient full-window immersion with autonomous nature-doc submarine patrol.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STANDARD VIEW: Bottom-Left Camera Navigation Hint Pill */}
+      {!isDesktopMode && (
+        <div className="absolute left-4 bottom-6 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-slate-800 text-[11px] font-mono text-slate-400">
+          <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
+          <span>Drag to orbit • Scroll to zoom • Press <strong className="text-cyan-300">[R]</strong> to reset</span>
         </div>
       )}
 
