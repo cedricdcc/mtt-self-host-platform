@@ -22,10 +22,12 @@
     "react-hot-toast": "2.4.1",
     "react-router-dom": "6.22.3",
     "recharts": "^3.7.0",
-    "remotion": "^4.0.474"
+    "remotion": "^4.0.474",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
