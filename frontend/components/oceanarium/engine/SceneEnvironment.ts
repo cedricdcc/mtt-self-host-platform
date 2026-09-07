@@ -78,8 +78,7 @@ export class SceneEnvironment {
     // Deep seabed plate
     const groundGeo = new THREE.PlaneGeometry(100, 60);
     const groundMat = new THREE.MeshToonMaterial({
-      color: 0x051329,
-      roughness: 0.8
+      color: 0x051329
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;

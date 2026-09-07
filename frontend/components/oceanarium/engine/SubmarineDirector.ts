@@ -70,8 +70,7 @@ export class SubmarineDirector {
 
     // Materials
     const yellowHullMat = new THREE.MeshToonMaterial({
-      color: 0xffcb05, // Classic bright yellow
-      roughness: 0.4
+      color: 0xffcb05 // Classic bright yellow
     });
 
     const redStripeMat = new THREE.MeshToonMaterial({
@@ -79,8 +78,7 @@ export class SubmarineDirector {
     });
 
     const darkMetalMat = new THREE.MeshToonMaterial({
-      color: 0x22303c,
-      roughness: 0.6
+      color: 0x22303c
     });
 
     const glassDomeMat = new THREE.MeshPhysicalMaterial({
