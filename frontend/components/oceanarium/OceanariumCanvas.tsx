@@ -3,6 +3,7 @@ import { UserFish } from '../../types';
 import { ThreeGameDirector, OceanariumMode } from './engine/ThreeGameDirector';
 import { ObservedFishData } from './engine/SubmarineDirector';
 import { Maximize2, Minimize2, Sparkles, Compass, Eye, X, RotateCcw } from 'lucide-react';
+import FishInfographicPanel from './FishInfographicPanel';
 
 interface OceanariumCanvasProps {
   fishes: UserFish[];
@@ -366,38 +367,24 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
         </div>
       )}
 
-      {/* STANDARD VIEW: Selected Fish Tooltip / Inspection Card */}
+      {/* STANDARD VIEW: Selected Fish Scientific Infographic Drawer */}
       {!isDesktopMode && selectedFish && (
-        <div className="absolute right-4 bottom-6 z-20 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 text-white rounded-2xl p-4 shadow-2xl max-w-xs pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-cyan-300">
-                {selectedFish.nickname || selectedFish.name}
-              </span>
-              {Boolean(selectedFish.is_shiny) && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  SHINY
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => setSelectedFish(null)}
-              className="text-slate-400 hover:text-white p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <p className="text-xs text-slate-300 mb-2 leading-relaxed">
-            {selectedFish.description}
-          </p>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
-            <span>Depth: <strong className="text-sky-300 capitalize">{selectedFish.depth_zone}</strong></span>
-            <span>Rarity: <strong className="text-amber-300 capitalize">{selectedFish.rarity}</strong></span>
-          </div>
-        </div>
+        <FishInfographicPanel
+          fish={selectedFish}
+          onClose={() => {
+            setSelectedFish(null);
+            if (directorRef.current) {
+              directorRef.current.detachReticle();
+              directorRef.current.resetCameraView(0.8);
+            }
+          }}
+          onFeedFish={(type) => {
+            if (directorRef.current) {
+              directorRef.current.feed(type);
+            }
+            onFeed(type);
+          }}
+        />
       )}
     </div>
   );

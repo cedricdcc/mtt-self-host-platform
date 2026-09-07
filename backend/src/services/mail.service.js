@@ -12,28 +12,33 @@ let transporter = null;
 function getTransporter() {
   if (!transporter) {
     const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = parseInt(process.env.SMTP_PORT || "587", 10);
+    const smtpPort = parseInt(process.env.SMTP_PORT || "25", 10);
     const smtpSecure = process.env.SMTP_SECURE === "true";
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
 
     if (!smtpHost) {
       console.warn("[Mail Service] SMTP_HOST not configured. Mail service running in offline mode.");
       return null;
     }
 
-    transporter = nodemailer.createTransport({
+    const transportConfig = {
       host: smtpHost,
       port: smtpPort,
       secure: smtpSecure,
-      auth: smtpUser ? {
-        user: smtpUser,
-        pass: smtpPass
-      } : undefined,
       tls: {
         rejectUnauthorized: false // Avoid SSL certificate rejection for local/self-signed setups
       }
-    });
+    };
+
+    // Only attach auth if explicitly requested (e.g. SMTP_AUTH="true")
+    // Most internal network relays (like port 25) do not require authentication and reject auth attempts
+    if (process.env.SMTP_AUTH === "true" && process.env.SMTP_USER) {
+      transportConfig.auth = {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      };
+    }
+
+    transporter = nodemailer.createTransport(transportConfig);
   }
   return transporter;
 }
@@ -495,5 +500,7 @@ module.exports = {
   processQueue,
   startMailQueueWorker,
   sendMailSync,
-  getEmailBody
+  getEmailBody,
+  getTransporter,
+  resetTransporter: () => { transporter = null; }
 };
