@@ -51,14 +51,27 @@ export class CameraDirector {
     this.isResetting = true;
     this.resetProgress = 0;
     this.resetDuration = Math.max(0.1, duration);
+
+    // Derive spherical coordinates from active 3D camera position relative to current lookAt
+    const relPos = new THREE.Vector3().subVectors(this.camera.position, this.currentLookAt);
+    if (relPos.length() > 0.001) {
+      this.spherical.setFromVector3(relPos);
+    }
+    this.centerOffset.copy(this.currentLookAt);
+
     this.resetStartSpherical.copy(this.spherical);
     this.resetStartCenter.copy(this.centerOffset);
   }
 
   public setMode(mode: CameraMode): void {
+    const prevMode = this.mode;
     this.mode = mode;
     if (mode === 'STANDARD_VIEW') {
       this.inspectingTarget = null;
+      if (prevMode === 'DESKTOP_MODE') {
+        // Automatically smoothly reset camera back to the 1:1:1 diorama cube view
+        this.resetToIsometric(1.0);
+      }
     }
   }
 
@@ -94,27 +107,18 @@ export class CameraDirector {
   }
 
   /**
-   * Handle mouse drag start
+   * Handle mouse drag start (locked in standard view)
    */
   public onPointerDown(clientX: number, clientY: number): void {
-    if (this.mode !== 'STANDARD_VIEW') return;
-    this.isDragging = true;
-    this.previousMousePosition = { x: clientX, y: clientY };
+    // Orbit drag disabled in normal mode to keep the diorama cube locked in its pristine 2.5D isometric view
+    this.isDragging = false;
   }
 
   /**
    * Handle mouse drag movement
    */
   public onPointerMove(clientX: number, clientY: number): void {
-    if (!this.isDragging || this.mode !== 'STANDARD_VIEW') return;
-
-    const deltaX = clientX - this.previousMousePosition.x;
-    const deltaY = clientY - this.previousMousePosition.y;
-
-    this.spherical.theta -= deltaX * 0.005;
-    this.spherical.phi = Math.max(0.2, Math.min(Math.PI - 0.2, this.spherical.phi - deltaY * 0.005));
-
-    this.previousMousePosition = { x: clientX, y: clientY };
+    if (!this.isDragging) return;
   }
 
   /**
