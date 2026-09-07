@@ -12,10 +12,12 @@ import {
   Sparkles, 
   Loader2,
   Calendar,
-  ShieldAlert
+  ShieldAlert,
+  Plus
 } from 'lucide-react';
 import { AdminGachaUser, AdminUserFish, AdminUserTankResponse, UserEcosystem } from '../../types';
 import { backendApi } from '../../services/api';
+import GrantFishModal from './GrantFishModal';
 import toast from 'react-hot-toast';
 
 interface AdminTankDrawerProps {
@@ -55,6 +57,9 @@ export const AdminTankDrawer: React.FC<AdminTankDrawerProps> = ({ user, onClose,
   const [resetPity, setResetPity] = useState(false);
   const [resetFood, setResetFood] = useState(false);
   const [submittingReset, setSubmittingReset] = useState(false);
+
+  // Grant Fish Modal state
+  const [showGrantModal, setShowGrantModal] = useState(false);
 
   const fetchTankData = async () => {
     try {
@@ -178,6 +183,14 @@ export const AdminTankDrawer: React.FC<AdminTankDrawerProps> = ({ user, onClose,
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowGrantModal(true)}
+              className="px-3.5 py-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+              title="Grant marine specimen"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Grant Specimen</span>
+            </button>
             <button
               onClick={() => setShowResetModal(true)}
               className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
@@ -305,9 +318,21 @@ export const AdminTankDrawer: React.FC<AdminTankDrawerProps> = ({ user, onClose,
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <h4 className="font-bold text-xs text-white truncate">{fish.name}</h4>
-                          <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${rarityStyle.badge}`}>
-                            {fish.rarity}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {Boolean(fish.is_shiny) && (
+                              <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5">
+                                <Sparkles className="w-2.5 h-2.5" /> Shiny
+                              </span>
+                            )}
+                            {fish.model_url && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30" title={fish.model_url}>
+                                GLB
+                              </span>
+                            )}
+                            <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${rarityStyle.badge}`}>
+                              {fish.rarity}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Nickname Editor */}
@@ -489,6 +514,20 @@ export const AdminTankDrawer: React.FC<AdminTankDrawerProps> = ({ user, onClose,
             </div>
           </div>
         </div>
+      )}
+      {/* Grant Specimen Modal */}
+      {showGrantModal && (
+        <GrantFishModal
+          isOpen={showGrantModal}
+          user={user}
+          onClose={() => setShowGrantModal(false)}
+          onSuccess={(grantedFishes, totalCount) => {
+            setFishes(prev => [...grantedFishes, ...prev]);
+            if (ecosystem) {
+              onUpdate(user.id, ecosystem, totalCount);
+            }
+          }}
+        />
       )}
     </div>
   );

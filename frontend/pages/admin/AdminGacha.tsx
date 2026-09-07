@@ -15,11 +15,16 @@ import {
   Plus, 
   RefreshCw, 
   AlertCircle, 
-  Loader2 
+  Loader2,
+  Box,
+  Users,
+  Save,
+  ExternalLink
 } from 'lucide-react';
 import { backendApi } from '../../services/api';
-import { AdminGachaUser, AdminGachaResponse, AdminGachaSummary } from '../../types';
+import { AdminGachaUser, AdminGachaResponse, AdminGachaSummary, GachaSpecies } from '../../types';
 import AdminTankDrawer from '../../components/admin/AdminTankDrawer';
+import GrantFishModal from '../../components/admin/GrantFishModal';
 import toast from 'react-hot-toast';
 
 const AdminGacha: React.FC = () => {
@@ -32,11 +37,23 @@ const AdminGacha: React.FC = () => {
   // Modal & Drawer State
   const [selectedUser, setSelectedUser] = useState<AdminGachaUser | null>(null);
   const [tankUser, setTankUser] = useState<AdminGachaUser | null>(null);
+  const [grantUser, setGrantUser] = useState<AdminGachaUser | null>(null);
   const [ticketsInput, setTicketsInput] = useState<number>(5);
   const [flakesInput, setFlakesInput] = useState<number>(0);
   const [pelletsInput, setPelletsInput] = useState<number>(0);
   const [resetWater, setResetWater] = useState<boolean>(false);
   const [submittingModal, setSubmittingModal] = useState<boolean>(false);
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'users' | 'species'>('users');
+
+  // Species & 3D Models State
+  const [speciesList, setSpeciesList] = useState<GachaSpecies[]>([]);
+  const [loadingSpecies, setLoadingSpecies] = useState<boolean>(false);
+  const [speciesSearch, setSpeciesSearch] = useState<string>('');
+  const [modelUrlInputs, setModelUrlInputs] = useState<Record<string, string>>({});
+  const [savingSpeciesId, setSavingSpeciesId] = useState<string | null>(null);
+  const [urlStatuses, setUrlStatuses] = useState<Record<string, 'ok' | 'missing' | 'testing'>>({});
 
   const fetchData = async () => {
     try {
@@ -59,6 +76,75 @@ const AdminGacha: React.FC = () => {
     }, 250);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  const fetchSpecies = async () => {
+    try {
+      setLoadingSpecies(true);
+      const res = await backendApi.get<{ species: GachaSpecies[] }>('/admin/gacha/species');
+      if (res && res.species) {
+        setSpeciesList(res.species);
+        const inputs: Record<string, string> = {};
+        res.species.forEach(s => {
+          inputs[s.id] = s.model_url || '';
+        });
+        setModelUrlInputs(inputs);
+      }
+    } catch (err: any) {
+      console.error('Failed to load species catalog:', err);
+      toast.error('Failed to load species catalog');
+    } finally {
+      setLoadingSpecies(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'species') {
+      fetchSpecies();
+    }
+  }, [activeTab]);
+
+  const handleSaveModelUrl = async (speciesId: string) => {
+    try {
+      setSavingSpeciesId(speciesId);
+      const url = modelUrlInputs[speciesId] ? modelUrlInputs[speciesId].trim() : null;
+      const res = await backendApi.patch<{ ok: boolean; species: GachaSpecies }>(
+        `/admin/gacha/species/${speciesId}`,
+        { model_url: url }
+      );
+      if (res.ok) {
+        setSpeciesList(prev => prev.map(s => s.id === speciesId ? { ...s, model_url: res.species.model_url } : s));
+        toast.success(`Updated 3D model URL for ${res.species.name}`);
+      }
+    } catch (err: any) {
+      console.error('Failed to update species model URL:', err);
+      toast.error(err.message || 'Failed to update species');
+    } finally {
+      setSavingSpeciesId(null);
+    }
+  };
+
+  const handleTestModelUrl = async (speciesId: string) => {
+    const url = modelUrlInputs[speciesId] ? modelUrlInputs[speciesId].trim() : '';
+    if (!url) {
+      toast('No model URL specified.', { icon: 'ℹ️' });
+      return;
+    }
+
+    setUrlStatuses(prev => ({ ...prev, [speciesId]: 'testing' }));
+    try {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.ok) {
+        setUrlStatuses(prev => ({ ...prev, [speciesId]: 'ok' }));
+        toast.success('GLB asset is accessible (HTTP 200)');
+      } else {
+        setUrlStatuses(prev => ({ ...prev, [speciesId]: 'missing' }));
+        toast.error(`Asset returned HTTP ${res.status}`);
+      }
+    } catch (e) {
+      setUrlStatuses(prev => ({ ...prev, [speciesId]: 'missing' }));
+      toast.error('Could not reach asset URL');
+    }
+  };
 
   const handleToggleAccess = async (user: AdminGachaUser) => {
     if (user.is_admin === 1 || user.is_superadmin) {
@@ -197,6 +283,33 @@ const AdminGacha: React.FC = () => {
           <span>Refresh</span>
         </button>
       </div>
+
+      {/* Tabs Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 mb-6">
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'users'
+              ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+          }`}
+        >
+          <Users size={16} /> Users & Aquariums
+        </button>
+        <button
+          onClick={() => setActiveTab('species')}
+          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === 'species'
+              ? 'border-cyan-500 text-cyan-600 dark:text-cyan-400'
+              : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
+          }`}
+        >
+          <Box size={16} /> Species & 3D Models
+        </button>
+      </div>
+
+      {activeTab === 'users' ? (
+        <>
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -429,6 +542,14 @@ const AdminGacha: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
+                            onClick={() => setGrantUser(u)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors shadow-sm"
+                            title="Grant specific marine specimen to user"
+                          >
+                            <Sparkles size={13} />
+                            <span>Grant Fish</span>
+                          </button>
+                          <button
                             onClick={() => setTankUser(u)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-cyan-600 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition-colors shadow-sm"
                             title="Manage user aquarium and caught fishes"
@@ -453,6 +574,144 @@ const AdminGacha: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      ) : (
+        /* Species & 3D Models Management Tab Content */
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Box size={20} className="text-cyan-500" />
+                Species Catalog & 3D GLB Model Pipeline
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Configure which marine species use procedural cartoon rendering vs custom GLB 3D models (e.g. <code>/models/puffer.glb</code>).
+              </p>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Filter species by name..."
+                value={speciesSearch}
+                onChange={(e) => setSpeciesSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+          </div>
+
+          {loadingSpecies ? (
+            <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-400 text-sm flex items-center justify-center gap-2">
+              <Loader2 className="animate-spin" size={18} /> Loading marine species catalog...
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-6 py-3.5">Species</th>
+                      <th className="px-6 py-3.5">Zone & Rarity</th>
+                      <th className="px-6 py-3.5">Rendering Mode</th>
+                      <th className="px-6 py-3.5">GLB 3D Model Path</th>
+                      <th className="px-6 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                    {speciesList
+                      .filter(s => !speciesSearch || s.name.toLowerCase().includes(speciesSearch.toLowerCase()) || s.id.toLowerCase().includes(speciesSearch.toLowerCase()))
+                      .map(s => {
+                        const isGLB = Boolean(s.model_url);
+                        const isSaving = savingSpeciesId === s.id;
+                        const status = urlStatuses[s.id];
+
+                        return (
+                          <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-750/30 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/60 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                                  <Fish size={18} />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-slate-900 dark:text-white text-xs">{s.name}</div>
+                                  <div className="text-[10px] font-mono text-slate-400">{s.id}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="capitalize text-xs text-slate-600 dark:text-slate-300">{s.depth_zone}</span>
+                                <span className="text-slate-400">•</span>
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                  {s.rarity}
+                                </span>
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {isGLB ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                                  <Box size={13} /> 3D GLB Model
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                  Procedural Cartoon
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2 max-w-sm">
+                                <input
+                                  type="text"
+                                  placeholder="e.g. /models/puffer.glb (or empty for procedural)"
+                                  value={modelUrlInputs[s.id] ?? ''}
+                                  onChange={(e) => setModelUrlInputs(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                  className="w-full px-2.5 py-1 text-xs font-mono bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+                                />
+                                {status === 'ok' && (
+                                  <span className="text-[10px] font-bold text-emerald-500 shrink-0" title="HTTP 200 OK">✓ Valid</span>
+                                )}
+                                {status === 'missing' && (
+                                  <span className="text-[10px] font-bold text-rose-500 shrink-0" title="File not found">✗ 404</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="px-6 py-4 whitespace-nowrap text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTestModelUrl(s.id)}
+                                  disabled={!modelUrlInputs[s.id]}
+                                  className="px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md border border-slate-200 dark:border-slate-700 transition-colors disabled:opacity-40"
+                                  title="Test if GLB asset file is accessible"
+                                >
+                                  {status === 'testing' ? <Loader2 size={12} className="animate-spin" /> : 'Test'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveModelUrl(s.id)}
+                                  disabled={isSaving}
+                                  className="px-3 py-1 text-xs font-bold text-white bg-cyan-600 hover:bg-cyan-500 rounded-md transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
+                                >
+                                  {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                  <span>Save</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Manage Resources Modal */}
       {selectedUser && (
@@ -571,6 +830,18 @@ const AdminGacha: React.FC = () => {
               super_pellets: updatedEco.super_pellets,
               fishes_count: fishesCount
             } : u));
+          }}
+        />
+      )}
+
+      {/* Grant Specimen Modal */}
+      {grantUser && (
+        <GrantFishModal
+          isOpen={Boolean(grantUser)}
+          user={grantUser}
+          onClose={() => setGrantUser(null)}
+          onSuccess={(grantedFishes, totalCount) => {
+            setUsers(prev => prev.map(u => u.id === grantUser.id ? { ...u, fishes_count: totalCount } : u));
           }}
         />
       )}

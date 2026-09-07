@@ -387,6 +387,7 @@ export interface GachaSpecies {
   drop_weight?: number;
   description: string;
   visual_traits: VisualTraits;
+  model_url?: string | null;
   is_discovered?: boolean;
   discovered_shiny?: boolean;
   caught_count?: number;
@@ -420,6 +421,7 @@ export interface UserFish {
   caught_at: string;
   is_favorite: number;
   is_shiny?: boolean | number;
+  model_url?: string | null;
 }
 
 export interface EcosystemResponse {
@@ -428,29 +430,27 @@ export interface EcosystemResponse {
 }
 
 export interface GachaPullResult {
-  user_fish_id: number;
+  fish_id: number;
   species_id: string;
   name: string;
-  depth_zone: 'sunlit' | 'twilight' | 'abyssal';
-  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  depth_zone: string;
+  rarity: string;
   description: string;
   visual_traits: VisualTraits;
-  is_new_discovery: boolean;
+  is_new: boolean;
   is_shiny?: boolean;
 }
 
 export interface GachaPullResponse {
   results: GachaPullResult[];
-  updated_ecosystem: UserEcosystem;
-  extra_flakes_awarded: number;
+  ecosystem: UserEcosystem;
 }
 
 export interface CodexResponse {
   species: GachaSpecies[];
-  total_species: number;
   total_discovered: number;
-  total_shiny_discovered?: number;
-  completion_percentage: number;
+  total_species: number;
+  zone_breakdown: Record<string, { discovered: number; total: number }>;
 }
 
 export interface AdminGachaUser {
@@ -460,7 +460,7 @@ export interface AdminGachaUser {
   is_superadmin: boolean;
   has_gacha_access: number;
   dive_tickets: number;
-  tickets?: number;
+  tickets: number;
   food_flakes: number;
   super_pellets: number;
   water_quality: number;
@@ -486,11 +486,13 @@ export interface AdminUserFish {
   status: 'active' | 'dormant';
   caught_at: string;
   is_favorite: number;
+  is_shiny?: number | boolean;
   name: string;
   depth_zone: string;
   rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-  visual_traits: string;
+  visual_traits: any;
   description: string;
+  model_url?: string | null;
 }
 
 export interface AdminUserTankResponse {
@@ -498,3 +500,13 @@ export interface AdminUserTankResponse {
   fishes: AdminUserFish[];
 }
 
+export interface AdminGrantFishRequest {
+  species_id: string;
+  is_shiny?: boolean;
+  nickname?: string | null;
+  count?: number;
+}
+
+export interface AdminSpeciesCatalogResponse {
+  species: GachaSpecies[];
+}
