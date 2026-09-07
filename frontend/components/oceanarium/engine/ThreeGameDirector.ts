@@ -5,6 +5,8 @@ import { FishBoidsSystem, BoidFish } from './FishBoidsSystem';
 import { SubmarineDirector, ObservedFishData } from './SubmarineDirector';
 import { CameraDirector, CameraMode } from './CameraDirector';
 import { FeedingPhysics, FeedEvent } from './FeedingPhysics';
+import { FoliageSystem } from './FoliageSystem';
+import { BubbleSystem } from './BubbleSystem';
 import { UserFish } from '../../../types';
 
 export type OceanariumMode = 'STANDARD_VIEW' | 'DESKTOP_MODE' | 'INSPECTING_FISH';
@@ -28,6 +30,8 @@ export class ThreeGameDirector {
 
   // Subsystems
   public environment: SceneEnvironment;
+  public foliageSystem: FoliageSystem;
+  public bubbleSystem: BubbleSystem;
   public fishFactory: CartoonFishFactory;
   public boidsSystem: FishBoidsSystem;
   public submarineDirector: SubmarineDirector;
@@ -71,6 +75,8 @@ export class ThreeGameDirector {
 
     // 3. Initialize Subsystems
     this.environment = new SceneEnvironment(this.scene);
+    this.foliageSystem = new FoliageSystem(this.scene);
+    this.bubbleSystem = new BubbleSystem(this.scene);
     this.fishFactory = new CartoonFishFactory();
     this.boidsSystem = new FishBoidsSystem(this.scene);
     this.submarineDirector = new SubmarineDirector(this.scene);
@@ -94,6 +100,10 @@ export class ThreeGameDirector {
 
     // 5. Start Game Loop
     this.startLoop();
+  }
+
+  public resetCameraView(duration = 1.0): void {
+    this.cameraDirector.resetToIsometric(duration);
   }
 
   public getMode(): OceanariumMode {
@@ -242,25 +252,35 @@ export class ThreeGameDirector {
       // 1. Update Environment
       this.environment.update(delta, time);
 
-      // 2. Update Food Pellets
+      // 2. Update Seabed Foliage and Dynamic Bubbles
+      this.foliageSystem.update(delta, time);
+      this.bubbleSystem.update(delta, time);
+
+      // 3. Update Food Pellets
       this.feedingPhysics.update(delta);
 
-      // 3. Update Boids Swimming & Food Chasing
+      // 4. Update Boids Swimming & Food Chasing
       this.boidsSystem.update(delta, time, this.feedingPhysics.getPellets());
 
-      // 4. Check Mouth Collisions
+      // 5. Check Mouth Collisions and emit celebratory mouth bubble puffs
       const feedEvents = this.feedingPhysics.checkFishFeeding(this.boidsSystem.getAllFishes());
-      if (feedEvents.length > 0 && this.callbacks.onFeedSuccess) {
-        feedEvents.forEach((ev) => this.callbacks.onFeedSuccess!(ev));
+      if (feedEvents.length > 0) {
+        feedEvents.forEach((ev) => {
+          if (this.callbacks.onFeedSuccess) this.callbacks.onFeedSuccess(ev);
+          const targetBoid = this.boidsSystem.getAllFishes().find((b) => b.id === ev.fishId);
+          if (targetBoid && targetBoid.mesh) {
+            this.bubbleSystem.emitFishMouthPuff(targetBoid.mesh.position, 4);
+          }
+        });
       }
 
-      // 5. Update Submarine Navigation & Nature Doc Patrol
+      // 6. Update Submarine Navigation & Nature Doc Patrol
       this.submarineDirector.update(delta, time, this.boidsSystem.getAllFishes());
 
-      // 6. Update Camera Director
+      // 7. Update Camera Director
       this.cameraDirector.update(delta, this.submarineDirector, this.observedFish);
 
-      // 7. Render Scene
+      // 8. Render Scene
       this.renderer.render(this.scene, this.camera);
 
       this.animFrameId = requestAnimationFrame(tick);
@@ -278,6 +298,8 @@ export class ThreeGameDirector {
     }
 
     this.environment.dispose();
+    this.foliageSystem.dispose();
+    this.bubbleSystem.dispose();
     this.boidsSystem.dispose();
     this.submarineDirector.dispose();
     this.feedingPhysics.dispose();

@@ -30,6 +30,10 @@ function run() {
   assert.ok(directorContent.includes('syncFishes'), 'Must implement syncFishes');
   assert.ok(directorContent.includes('feed'), 'Must implement 3D feed method');
   assert.ok(directorContent.includes('dispose'), 'Must implement dispose method for resource cleanup');
+  assert.ok(directorContent.includes('foliageSystem'), 'Must instantiate FoliageSystem');
+  assert.ok(directorContent.includes('bubbleSystem'), 'Must instantiate BubbleSystem');
+  assert.ok(directorContent.includes('resetCameraView'), 'Must expose resetCameraView method');
+  assert.ok(directorContent.includes('emitFishMouthPuff'), 'Must emit bubble puffs on feeding');
 
   console.log('✓ CameraDirector & ThreeGameDirector invariants PASSED!');
 }
