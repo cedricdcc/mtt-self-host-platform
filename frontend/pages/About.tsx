@@ -17,7 +17,7 @@ const About: React.FC = () => {
       
       <div className="prose prose-slate dark:prose-invert lg:prose-lg mx-auto mb-16">
         <p>
-          <strong>Marine Term Translations</strong> is a specialized platform designed to bridge the gap between technical marine science vocabulary and global understanding and was developed within the framework of <a href="https://emodnet.ec.europa.eu/en/biology" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:underline font-semibold">EMODnet Biology</a>. 
+          <strong>Marine Term Translations</strong> is a specialized platform designed to bridge the gap between technical marine science vocabulary and global understanding and was developed with support of <a href="https://emodnet.ec.europa.eu/en/biology" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:underline font-semibold">EMODnet Biology</a>. 
           It operates on top of the <a href="https://vocab.nerc.ac.uk/" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:underline font-semibold">NERC Vocabulary Server</a>, 
           allowing domain experts and contributors to provide translations that are scientifically accurate yet accessible.
         </p>
@@ -158,10 +158,10 @@ const About: React.FC = () => {
               </div>
               <div className="bg-white/50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
                   <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-1">
-                      <Share2 size={16} className="text-marine-500" /> Standards-Based
+                      <Share2 size={16} className="text-marine-500" /> Standards-Based & Downstream Ingestion
                   </h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                      Built on W3C standards (SKOS, JSON-LD) for compatibility with existing marine science infrastructure.
+                      Built on W3C standards (SKOS, JSON-LD) so translations can be ingested by downstream systems like the <a href="https://vocab.vliz.be/" target="_blank" rel="noopener noreferrer" className="text-marine-600 dark:text-marine-400 hover:underline font-medium">VLIZ Vocabulary Server</a>.
                   </p>
               </div>
               <div className="bg-white/50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -176,75 +176,116 @@ const About: React.FC = () => {
         </div>
       </div>
 
-      {/* NVS Info Box */}
-      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 mb-16 text-center">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">NERC Vocabulary Server</h2>
-          <p className="text-slate-600 dark:text-slate-300 mb-4 max-w-3xl mx-auto">
-              The NVS is a service that provides access to a huge number of curated collections of controlled vocabularies in the oceanographic and related earth-science domains. 
-              It is managed by the <strong>British Oceanographic Data Centre (BODC)</strong> and funded by the UK's <strong>Natural Environment Research Council (NERC)</strong>.
-          </p>
+      {/* Marine Vocabulary & Data Ecosystem Grid */}
+      <div className="grid md:grid-cols-2 gap-6 mb-16">
+        {/* NVS Authority Card */}
+        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 flex flex-col justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold uppercase tracking-wide mb-4">
+              Vocabulary Authority
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+              <a href="https://vocab.nerc.ac.uk/" target="_blank" rel="noopener noreferrer" className="hover:text-marine-600 dark:hover:text-marine-400 transition-colors">
+                NERC Vocabulary Server
+              </a>
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-4">
+              The NVS provides access to curated collections of controlled vocabularies in oceanographic and earth-science domains. Managed by the <strong>British Oceanographic Data Centre (BODC)</strong> and funded by the UK's <strong>Natural Environment Research Council (NERC)</strong>, it serves as the foundational authority from which MTT retrieves standardized concepts for community translation.
+            </p>
+          </div>
+          <div>
+            <a 
+              href="https://vocab.nerc.ac.uk/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-marine-600 dark:text-marine-400 text-sm font-semibold hover:underline inline-flex items-center gap-1"
+            >
+              Explore NVS Vocabularies &rarr;
+            </a>
+          </div>
+        </div>
+
+        {/* EMODnet Community Card */}
+        <div className="bg-marine-50/50 dark:bg-slate-800/50 border border-marine-200 dark:border-slate-700 rounded-2xl p-8 flex flex-col justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-marine-100 dark:bg-marine-900 text-marine-700 dark:text-marine-300 text-xs font-bold uppercase tracking-wide mb-4">
+              Marine Science Community
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+              <a href="https://emodnet.ec.europa.eu/en/biology" target="_blank" rel="noopener noreferrer" className="hover:text-marine-600 dark:hover:text-marine-400 transition-colors">
+                EMODnet Community
+              </a>
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-4">
+              The European Marine Observation and Data Network (<strong>EMODnet Biology</strong>) unifies fragmented marine biodiversity data from across Europe. Multilingual translations produced on MTT enable European data contributors to map local terminologies to common standards, significantly increasing the accessibility and FAIR reuse of marine biodiversity observations.
+            </p>
+          </div>
+          <div>
+            <a 
+              href="https://emodnet.ec.europa.eu/en/biology" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-marine-600 dark:text-marine-400 text-sm font-semibold hover:underline inline-flex items-center gap-1"
+            >
+              Learn about EMODnet Biology &rarr;
+            </a>
+          </div>
+        </div>
       </div>
 
-      {/* Partners & Sponsors Section */}
-      <div className="bg-gradient-to-br from-marine-50 to-slate-50 dark:from-slate-800 dark:to-slate-900 border border-marine-200 dark:border-slate-700 rounded-2xl p-8 mb-16">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 text-center">Partners & Sponsors</h2>
-          <div className="prose prose-slate dark:prose-invert max-w-3xl mx-auto">
-              <p className="text-slate-600 dark:text-slate-300 mb-6 text-center">
-                  This platform is made possible through the collaboration and support of leading marine science organizations and European institutions.
-              </p>
-              
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* EMODnet Biology - First Box */}
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full md:col-span-2 lg:col-span-1">
-                      <div>
-                          <div className="h-10 flex items-center mb-4">
-                              <img src="/emodnet-logo.png" alt="EMODnet Biology Logo" className="max-h-full object-contain bg-white/90 dark:bg-white px-2 py-1 rounded" />
-                          </div>
-                          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                              <a href="https://emodnet.ec.europa.eu/en/biology" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:text-marine-700 dark:text-marine-400 dark:hover:text-marine-300 hover:underline">
-                                  EMODnet Biology
-                              </a>
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                              This project is sponsored by EMODnet Biology (European Marine Observation and Data Network), supporting the development of this platform to facilitate the internationalization and harmonization of marine science vocabularies.
-                          </p>
-                      </div>
-                  </div>
+      {/* Partners Logo Strip */}
+      <div className="bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 mb-16 text-center">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Partners</h2>
+        <p className="text-slate-600 dark:text-slate-400 text-sm max-w-2xl mx-auto mb-8">
+          Developed and maintained in collaboration with leading marine research institutions and data networks.
+        </p>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto items-center">
+          {/* VLIZ */}
+          <a 
+            href="https://www.vliz.be/en" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="h-24 p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-marine-500 dark:hover:border-marine-400 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center group"
+            title="Flanders Marine Institute (VLIZ)"
+          >
+            <img 
+              src="/vliz-logo.svg" 
+              alt="Flanders Marine Institute (VLIZ)" 
+              className="max-h-12 w-auto object-contain group-hover:scale-105 transition-transform duration-200" 
+            />
+          </a>
 
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                          <a href="https://vliz.be/en" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:text-marine-700 dark:text-marine-400 dark:hover:text-marine-300 hover:underline">
-                              Flanders Marine Institute (VLIZ)
-                          </a>
-                      </h3>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                          The parent organization that developed this platform. VLIZ is a leading research institute dedicated to marine sciences and knowledge exchange.
-                      </p>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                          <a href="https://open-science.vliz.be/" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:text-marine-700 dark:text-marine-400 dark:hover:text-marine-300 hover:underline">
-                              Open Science Team
-                          </a>
-                      </h3>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                          The specialized team at VLIZ that built this platform, dedicated to advancing open science practices and tools for the marine science community.
-                      </p>
-                  </div>
-                  
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                          <a href="https://vocab.vliz.be/" target="_blank" rel="noopener noreferrer" className="text-marine-600 hover:text-marine-700 dark:text-marine-400 dark:hover:text-marine-300 hover:underline">
-                              VLIZ Vocabulary Server
-                          </a>
-                      </h3>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                          A comprehensive vocabulary management tool that will leverage the multilingual translations created by this platform's community to enhance marine terminology accessibility.
-                      </p>
-                  </div>
-              </div>
-          </div>
+          {/* EMODnet */}
+          <a 
+            href="https://emodnet.ec.europa.eu/en/biology" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="h-24 p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-marine-500 dark:hover:border-marine-400 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center group"
+            title="EMODnet Biology"
+          >
+            <img 
+              src="/emodnet-logo.png" 
+              alt="EMODnet Biology" 
+              className="max-h-10 w-auto object-contain group-hover:scale-105 transition-transform duration-200 bg-white/90 px-2 py-1 rounded" 
+            />
+          </a>
+
+          {/* BODC */}
+          <a 
+            href="https://www.bodc.ac.uk/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="h-24 p-5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-marine-500 dark:hover:border-marine-400 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center group"
+            title="British Oceanographic Data Centre (BODC)"
+          >
+            <img 
+              src="/bodc-logo.png" 
+              alt="British Oceanographic Data Centre (BODC)" 
+              className="max-h-12 w-auto object-contain group-hover:scale-105 transition-transform duration-200" 
+            />
+          </a>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-8 text-center border-t border-slate-200 dark:border-slate-800 pt-12">

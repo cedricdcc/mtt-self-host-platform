@@ -26,34 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [isFooterVisible, setIsFooterVisible] = useState(false);
-  const footerRef = React.useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const windowHeight = window.innerHeight;
-      const documentHeight = document.documentElement.scrollHeight;
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-
-      setIsFooterVisible((prev) => {
-        if (!prev) {
-          // If footer is currently collapsed, check if we reached the bottom (within 10px)
-          return windowHeight + scrollTop >= documentHeight - 10;
-        } else {
-          // If footer is expanded, check if we scrolled up past the threshold (120px from bottom)
-          // to prevent layout loop / jitter caused by height changes.
-          return windowHeight + scrollTop >= documentHeight - 120;
-        }
-      });
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Initialize state
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
 
   useEffect(() => {
     // Only open if user is authenticated, has no email, and hasn't dismissed it in the current session
@@ -367,14 +340,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
 
-      {/* Footer - sticky when not authenticated, normal relative when authenticated */}
-      <footer 
-        ref={footerRef}
-        className={`bg-slate-100/95 dark:bg-slate-955/95 border-t border-slate-200 dark:border-slate-800 ${
-          !isAuthenticated ? 'sticky bottom-0 z-40 backdrop-blur-md shadow-lg' : 'relative z-10'
-        }`}
-      >
-        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-3 transition-all duration-300 ${isFooterVisible ? 'py-4' : 'py-3'}`}>
+      {/* Footer - static standard footer */}
+      <footer className="relative z-10 bg-slate-100/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
             <Link to="/" className="flex items-center gap-2 group">
               <img 
@@ -388,13 +356,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Link>
             <div className="flex items-center border-slate-300 dark:border-slate-800 sm:border-l sm:pl-6 py-0.5 gap-2">
               <span className="text-slate-500 dark:text-slate-400 font-medium text-xs">
-                Sponsored by
+                Supported by
               </span>
               <a 
                 href="https://emodnet.ec.europa.eu/en/biology" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="hover:scale-105 active:scale-95 transition-transform duration-200"
+                title="EMODnet Biology"
               >
                 <img 
                   src="/emodnet-logo.png" 
@@ -404,14 +373,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </a>
             </div>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 text-center md:text-right">
-            &copy; {format(parse(now()), 'YYYY')} Marine Term Translations. Data sourced from NERC Vocabulary Server.
-          </p>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-3 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
-          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 text-center leading-tight max-w-5xl mx-auto">
-            The European Marine Observation and Data Network (EMODnet) is financed by the European Union under Regulation (EU) 2021/1139 of the European Parliament and of the Council of 7 July 2021 establishing the European Maritime, Fisheries and Aquaculture Fund.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs text-slate-500 dark:text-slate-400 text-center md:text-right">
+            <span>
+              &copy; {format(parse(now()), 'YYYY')} VLIZ.
+            </span>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+            <a 
+              href="https://www.vliz.be/en" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-marine-600 dark:hover:text-marine-400 transition-colors"
+            >
+              VLIZ Website
+            </a>
+            <span className="hidden sm:inline text-slate-300 dark:text-slate-700">•</span>
+            <a 
+              href="https://www.vliz.be/en/privacy" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-marine-600 dark:hover:text-marine-400 transition-colors"
+            >
+              Privacy Policy
+            </a>
+          </div>
         </div>
       </footer>
 
