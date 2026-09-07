@@ -44,6 +44,19 @@ function run() {
   assert.ok(content.includes('bodyType === \'spiky\''), 'Must handle spiky pufferfish body geometry');
   assert.ok(content.includes('addAnglerLure'), 'Must handle bioluminescent lure for anglerfish');
 
+  // Verify nibbling mouth/jaw pivot
+  assert.ok(content.includes('jawPivot'), 'Must assign jawPivot for mouth nibbling kinematics');
+  assert.ok(content.includes('addNibblingMouth'), 'Must implement addNibblingMouth');
+
+  // Verify dorsal and anal fin crests
+  assert.ok(content.includes('dorsalFin'), 'Must assign dorsalFin crest');
+  assert.ok(content.includes('analFin'), 'Must assign analFin crest');
+
+  // Verify species-specific markings & cheek blush
+  assert.ok(content.includes('addCheekBlush'), 'Must add rosy cartoon cheek blush decals');
+  assert.ok(content.includes('addSpeciesMarkings'), 'Must implement addSpeciesMarkings');
+  assert.ok(content.includes('clownfish') || content.includes('stripes'), 'Must handle clownfish white bands');
+
   console.log('✓ CartoonFishFactory structural and visual invariants PASSED!');
 }
 

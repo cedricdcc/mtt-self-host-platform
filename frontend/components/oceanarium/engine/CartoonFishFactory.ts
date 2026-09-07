@@ -136,13 +136,25 @@ export class CartoonFishFactory {
     // 4. Add Animated Tail & Pivot
     const tailPivot = this.addTailFin(group, bodyType, accentMat);
 
-    // 5. Add Special Features (Angler lure, spines, manta wings, etc.)
+    // 5. Add Animated Dorsal & Anal Fin Crests
+    const { dorsalFin, analFin } = this.addFinCrests(group, bodyType, accentMat);
+
+    // 6. Add Animated Nibbling Mouth / Lower Jaw
+    const jawPivot = this.addNibblingMouth(group, bodyType, accentMat);
+
+    // 7. Add Rosy Cartoon Cheek Blush Decals
+    this.addCheekBlush(group, bodyType);
+
+    // 8. Add Species-Specific Markings (Clownfish stripes, Tang loop, etc.)
+    this.addSpeciesMarkings(group, species.id, bodyType, accentMat);
+
+    // 9. Add Special Features (Angler lure, spines, etc.)
     let lureGlow: THREE.PointLight | null = null;
     if (bodyType === 'angler' || traits.glow) {
       lureGlow = this.addAnglerLure(group, primaryColor);
     }
 
-    // 6. Shiny Sparkle Emitter
+    // 10. Shiny Sparkle Emitter
     let sparkleEmitter: THREE.Group | null = null;
     if (isShiny) {
       sparkleEmitter = this.createSparkleAura();
@@ -160,6 +172,9 @@ export class CartoonFishFactory {
       tailPivot,
       leftFin,
       rightFin,
+      dorsalFin,
+      analFin,
+      jawPivot,
       sparkleEmitter,
       lureGlow,
       swimSpeed: 1.0 + Math.random() * 0.4,
@@ -379,6 +394,143 @@ export class CartoonFishFactory {
 
     parent.add(tailPivot);
     return tailPivot;
+  }
+
+  /**
+   * Animated Dorsal and Anal Fin Crests
+   */
+  private addFinCrests(parent: THREE.Group, bodyType: string, finMat: THREE.Material): { dorsalFin: THREE.Object3D; analFin: THREE.Object3D } {
+    // 1. Dorsal Fin Crest
+    const dorsalPivot = new THREE.Group();
+    dorsalPivot.name = 'dorsal_fin';
+
+    const dorsalShape = new THREE.Shape();
+    dorsalShape.moveTo(0, 0);
+    dorsalShape.quadraticCurveTo(0.2, 0.5, 0.6, 0.6);
+    dorsalShape.quadraticCurveTo(0.4, 0.2, 0.8, 0);
+    dorsalShape.lineTo(0, 0);
+
+    const extrudeSettings = { depth: 0.04, bevelEnabled: false };
+    const dorsalGeo = new THREE.ExtrudeGeometry(dorsalShape, extrudeSettings);
+    dorsalGeo.center();
+    dorsalGeo.rotateY(Math.PI / 2);
+
+    const dorsalMesh = new THREE.Mesh(dorsalGeo, finMat);
+    const dorsalY = bodyType === 'disc' ? 1.25 : (bodyType === 'spiky' ? 1.05 : 0.9);
+    dorsalPivot.position.set(0, dorsalY, 0.1);
+    dorsalPivot.add(dorsalMesh);
+    parent.add(dorsalPivot);
+
+    // 2. Anal / Ventral Fin
+    const analPivot = new THREE.Group();
+    analPivot.name = 'anal_fin';
+
+    const analShape = new THREE.Shape();
+    analShape.moveTo(0, 0);
+    analShape.quadraticCurveTo(0.1, -0.35, 0.4, -0.45);
+    analShape.quadraticCurveTo(0.3, -0.15, 0.5, 0);
+    analShape.lineTo(0, 0);
+
+    const analGeo = new THREE.ExtrudeGeometry(analShape, extrudeSettings);
+    analGeo.center();
+    analGeo.rotateY(Math.PI / 2);
+
+    const analMesh = new THREE.Mesh(analGeo, finMat);
+    const analY = bodyType === 'disc' ? -1.2 : -0.75;
+    analPivot.position.set(0, analY, -0.4);
+    analPivot.add(analMesh);
+    parent.add(analPivot);
+
+    return { dorsalFin: dorsalPivot, analFin: analPivot };
+  }
+
+  /**
+   * Animated Nibbling Mouth / Lower Jaw Pivot
+   */
+  private addNibblingMouth(parent: THREE.Group, bodyType: string, accentMat: THREE.Material): THREE.Group {
+    const zMouth = bodyType === 'torpedo' ? 1.6 : (bodyType === 'spiky' ? 1.05 : 1.22);
+
+    // Upper Lip (Fixed)
+    const upperLipGeo = new THREE.SphereGeometry(0.12, 10, 8);
+    upperLipGeo.scale(1.4, 0.55, 0.9);
+    const upperLip = new THREE.Mesh(upperLipGeo, accentMat);
+    upperLip.position.set(0, 0.04, zMouth);
+    parent.add(upperLip);
+
+    // Lower Jaw Pivot (Animated nibbling)
+    const jawPivot = new THREE.Group();
+    jawPivot.name = 'jaw_pivot';
+    jawPivot.position.set(0, -0.06, zMouth - 0.08);
+
+    const lowerLipGeo = new THREE.SphereGeometry(0.11, 10, 8);
+    lowerLipGeo.scale(1.3, 0.5, 0.85);
+    const lowerLip = new THREE.Mesh(lowerLipGeo, accentMat);
+    lowerLip.position.set(0, 0, 0.08);
+    jawPivot.add(lowerLip);
+
+    parent.add(jawPivot);
+    return jawPivot;
+  }
+
+  /**
+   * Rosy Cartoon Cheek Blush Decals matching homepage pufferfish
+   */
+  private addCheekBlush(parent: THREE.Group, bodyType: string): void {
+    const blushMat = new THREE.MeshBasicMaterial({
+      color: 0xf472b6, // soft pink
+      transparent: true,
+      opacity: 0.72,
+      side: THREE.DoubleSide
+    });
+
+    const blushGeo = new THREE.CircleGeometry(0.14, 12);
+    const xOffset = bodyType === 'disc' ? 0.38 : (bodyType === 'spiky' ? 0.78 : 0.65);
+    const yOffset = 0.08;
+    const zOffset = 0.58;
+
+    [-1, 1].forEach((side) => {
+      const blush = new THREE.Mesh(blushGeo, blushMat);
+      blush.position.set(side * xOffset, yOffset, zOffset);
+      blush.rotation.y = side * (Math.PI / 2 + 0.15);
+      parent.add(blush);
+    });
+  }
+
+  /**
+   * Species-Specific Markings: Clownfish stripes, Tang loop, Puffer dots
+   */
+  private addSpeciesMarkings(parent: THREE.Group, speciesId: string, bodyType: string, accentMat: THREE.Material): void {
+    const sId = (speciesId || '').toLowerCase();
+    const isClown = sId.includes('clown') || sId.includes('anemone') || sId.includes('nemo');
+    const isTang = sId.includes('tang') || sId.includes('surgeon') || sId.includes('dory');
+
+    if (isClown) {
+      // 3 Characteristic clownfish white bands with dark borders
+      const bandMat = new THREE.MeshToonMaterial({
+        color: 0xffffff,
+        gradientMap: this.toonGradientMap
+      });
+
+      const bandPositions = [
+        { z: 0.45, r: 0.75 },   // Head band
+        { z: -0.05, r: 0.82 },  // Mid body band
+        { z: -0.65, r: 0.55 }   // Caudal band
+      ];
+
+      bandPositions.forEach((bp) => {
+        const bandGeo = new THREE.TorusGeometry(bp.r, 0.065, 8, 20);
+        const bandMesh = new THREE.Mesh(bandGeo, bandMat);
+        bandMesh.position.set(0, 0, bp.z);
+        parent.add(bandMesh);
+      });
+    } else if (isTang) {
+      // Vibrant yellow caudal fin highlight for Blue Tang
+      const yellowMat = new THREE.MeshToonMaterial({ color: 0xfacc15 });
+      const yellowFluke = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.5, 8), yellowMat);
+      yellowFluke.rotation.x = -Math.PI / 2;
+      yellowFluke.position.set(0, 0, -1.0);
+      parent.add(yellowFluke);
+    }
   }
 
   /**

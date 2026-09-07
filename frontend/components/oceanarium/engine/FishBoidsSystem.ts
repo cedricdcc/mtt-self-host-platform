@@ -200,6 +200,19 @@ export class FishBoidsSystem {
         mesh.userData.tailPivot.rotation.y = Math.sin(time * 4.5 * swimSpeed + swimPhase) * 0.42;
       }
 
+      // Dorsal and Anal fin secondary sway
+      if (mesh.userData.dorsalFin) {
+        mesh.userData.dorsalFin.rotation.y = Math.sin(time * 4.5 * swimSpeed + swimPhase - 0.4) * 0.22;
+      }
+      if (mesh.userData.analFin) {
+        mesh.userData.analFin.rotation.y = Math.sin(time * 4.5 * swimSpeed + swimPhase - 0.5) * 0.20;
+      }
+
+      // Animated mouth nibbling
+      if (mesh.userData.jawPivot) {
+        mesh.userData.jawPivot.rotation.x = Math.max(0, Math.sin(time * 5.0 * swimSpeed + swimPhase) * 0.16);
+      }
+
       // Pectoral fin flutter
       if (mesh.userData.leftFin && mesh.userData.rightFin) {
         const finWobble = Math.sin(time * 6.0 * swimSpeed + swimPhase) * 0.25;
