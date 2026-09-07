@@ -208,14 +208,14 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       className={`relative select-none overflow-hidden transition-all duration-300 ${
         isDesktopMode
           ? 'fixed inset-0 z-50 w-screen h-screen bg-slate-950'
-          : 'w-full h-[650px] md:h-[750px] rounded-3xl shadow-2xl border border-sky-900/40 bg-slate-950'
+          : 'w-full h-[70vh] min-h-[600px] max-h-[860px] rounded-3xl shadow-2xl border border-sky-900/40 bg-slate-950'
       }`}
       style={{ touchAction: 'none' }}
     >
       {/* 3D WebGL Canvas */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full block cursor-grab active:cursor-grabbing"
+        className="w-full h-full block cursor-default"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -306,7 +306,7 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       {!isDesktopMode && (
         <div className="absolute left-4 bottom-6 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-slate-800 text-[11px] font-mono text-slate-400">
           <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-          <span>Drag to orbit • Scroll to zoom • Press <strong className="text-cyan-300">[R]</strong> to reset</span>
+          <span>Locked Isometric View • Click specimen to inspect • Press <strong className="text-cyan-300">[R]</strong> to re-center</span>
         </div>
       )}
 

@@ -123,7 +123,7 @@ export const Oceanarium: React.FC = () => {
   const badge = getWaterQualityBadge(ecosystem.water_quality);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+    <div className="w-full px-3 sm:px-6 lg:px-8 py-4 space-y-4">
       {/* Top Header & HUD */}
       <div className="bg-slate-900/90 backdrop-blur-xl border border-sky-800/40 rounded-3xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Left: Title & Water Health */}
