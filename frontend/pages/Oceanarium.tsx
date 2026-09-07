@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ShieldAlert, Compass, BookOpen, Sparkles, Droplets, Fish, Heart, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Compass, BookOpen, Sparkles, Droplets, Fish, Heart, RefreshCw, Monitor } from 'lucide-react';
 import { ecosystemService } from '../services/ecosystemService';
 import { EcosystemResponse, CodexResponse } from '../types';
 import OceanariumCanvas from '../components/oceanarium/OceanariumCanvas';
@@ -16,6 +16,7 @@ export const Oceanarium: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'oceanarium' | 'dive' | 'codex'>('oceanarium');
   const [foodMode, setFoodMode] = useState<'none' | 'flake' | 'super_pellet'>('flake');
+  const [isDesktopMode, setIsDesktopMode] = useState(false);
 
   const hasAccess = Boolean(user?.isAdmin || user?.isSuperAdmin || user?.hasGachaAccess || user?.is_admin === 1);
 
@@ -211,6 +212,16 @@ export const Oceanarium: React.FC = () => {
               <span>🔮</span>
               <span>Pellets: <strong>{ecosystem.super_pellets}</strong></span>
             </button>
+
+            {/* Desktop Mode Button */}
+            <button
+              onClick={() => setIsDesktopMode(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 hover:brightness-110 shadow-md shadow-amber-500/20 transition-all border border-amber-400/40 ml-1"
+              title="Switch to ambient fullscreen Desktop Mode with autonomous submarine patrol"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>Desktop Mode</span>
+            </button>
           </div>
         )}
       </div>
@@ -223,6 +234,8 @@ export const Oceanarium: React.FC = () => {
             waterQuality={ecosystem.water_quality}
             foodMode={foodMode}
             onFeed={handleFeed}
+            isDesktopMode={isDesktopMode}
+            onToggleDesktopMode={setIsDesktopMode}
           />
         )}
 

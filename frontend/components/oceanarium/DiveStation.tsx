@@ -183,7 +183,7 @@ export const DiveStation: React.FC<DiveStationProps> = ({
       oceanAudio.playAnomalyAlert(topRarity);
 
       // Hold anomaly alert for suspense (1.6s for legendary/epic, 1.0s for common/rare)
-      const anomalyHoldTime = topRarity === 'legendary' ? 2000 : topRarity === 'epic' ? 1600 : 1100;
+      const anomalyHoldTime = (topRarity as string) === 'legendary' ? 2000 : (topRarity as string) === 'epic' ? 1600 : 1100;
       setTimeout(() => {
         setDiveState('pod_reveal');
         setCurrentPodIndex(0);
@@ -475,6 +475,13 @@ export const DiveStation: React.FC<DiveStationProps> = ({
                       <span className="text-4xl select-none">🐟</span>
                     </div>
 
+                    {currentFish.is_shiny && (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/40 mb-2 border border-amber-200 animate-bounce">
+                        <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                        <span>✨ ULTRA RARE SHINY DISCOVERY! ✨</span>
+                      </div>
+                    )}
+
                     <h3 className="text-lg font-black text-white tracking-tight">{currentFish.name}</h3>
                     
                     <span className={`text-xs font-mono font-black uppercase mt-1 px-3 py-0.5 rounded-full ${style.badge}`}>
@@ -529,8 +536,14 @@ export const DiveStation: React.FC<DiveStationProps> = ({
                   key={i}
                   className={`relative p-3 rounded-2xl border-2 ${style.border} ${style.bg} shadow-lg ${style.glow} flex flex-col items-center text-center transform hover:scale-105 transition-all duration-200`}
                 >
+                  {fish.is_shiny && (
+                    <span className="absolute -top-2 -left-2 bg-gradient-to-r from-amber-500 to-yellow-300 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md border border-amber-200 flex items-center gap-0.5 z-10">
+                      <Sparkles className="w-2.5 h-2.5" />
+                      SHINY!
+                    </span>
+                  )}
                   {fish.is_new_discovery && (
-                    <span className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md">
+                    <span className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md z-10">
                       NEW!
                     </span>
                   )}

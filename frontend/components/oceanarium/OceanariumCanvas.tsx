@@ -1,13 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserFish } from '../../types';
-import {
-  drawDepthBackground,
-  drawFish,
-  drawPellet,
-  FoodPellet,
-  Particle,
-  RenderFishState
-} from './canvasRenderer';
+import { ThreeGameDirector, OceanariumMode } from './engine/ThreeGameDirector';
+import { ObservedFishData } from './engine/SubmarineDirector';
+import { Maximize2, Minimize2, Sparkles, Compass, Eye, X } from 'lucide-react';
 
 interface OceanariumCanvasProps {
   fishes: UserFish[];
@@ -15,6 +10,8 @@ interface OceanariumCanvasProps {
   foodMode: 'none' | 'flake' | 'super_pellet';
   onFeed: (foodType: 'flake' | 'super_pellet') => void;
   onSelectFish?: (fish: UserFish) => void;
+  isDesktopMode?: boolean;
+  onToggleDesktopMode?: (enable: boolean) => void;
 }
 
 export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
@@ -22,353 +19,330 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
   waterQuality,
   foodMode,
   onFeed,
-  onSelectFish
+  onSelectFish,
+  isDesktopMode: externalDesktopMode,
+  onToggleDesktopMode
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const directorRef = useRef<ThreeGameDirector | null>(null);
 
-  const fishesStateRef = useRef<RenderFishState[]>([]);
-  const pelletsRef = useRef<FoodPellet[]>([]);
-  const particlesRef = useRef<Particle[]>([]);
-  const animFrameRef = useRef<number>(0);
-  const nextPelletId = useRef<number>(1);
+  const [internalDesktopMode, setInternalDesktopMode] = useState(false);
+  const isDesktopMode = externalDesktopMode !== undefined ? externalDesktopMode : internalDesktopMode;
 
-  const [selectedFishTooltip, setSelectedFishTooltip] = useState<{
-    fish: RenderFishState;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [selectedFish, setSelectedFish] = useState<UserFish | null>(null);
+  const [observedFish, setObservedFish] = useState<ObservedFishData | null>(null);
+  const [showControls, setShowControls] = useState(true);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeZone, setActiveZone] = useState<'sunlit' | 'twilight' | 'abyssal'>('sunlit');
 
-  // Initialize or update fishes state
-  useEffect(() => {
-    const existingMap = new Map<number, RenderFishState>();
-    fishesStateRef.current.forEach(f => existingMap.set(f.id, f));
-
-    const canvas = canvasRef.current;
-    const width = canvas ? canvas.width / (window.devicePixelRatio || 1) : 800;
-    const height = canvas ? canvas.height / (window.devicePixelRatio || 1) : 600;
-
-    const updated: RenderFishState[] = fishes.map(fish => {
-      const existing = existingMap.get(fish.user_fish_id);
-
-      // Depth zone Y bounds
-      let minY = 0.08 * height;
-      let maxY = 0.35 * height;
-      if (fish.depth_zone === 'twilight') {
-        minY = 0.35 * height;
-        maxY = 0.70 * height;
-      } else if (fish.depth_zone === 'abyssal') {
-        minY = 0.70 * height;
-        maxY = 0.92 * height;
-      }
-
-      if (existing) {
-        return {
-          ...existing,
-          status: fish.status,
-          nickname: fish.nickname,
-          is_favorite: fish.is_favorite
-        };
-      }
-
-      const initialX = Math.random() * (width - 100) + 50;
-      const initialY = Math.random() * (maxY - minY) + minY;
-
-      return {
-        id: fish.user_fish_id,
-        species_id: fish.species_id,
-        name: fish.name,
-        nickname: fish.nickname,
-        depth_zone: fish.depth_zone,
-        rarity: fish.rarity,
-        x: initialX,
-        y: initialY,
-        vx: (Math.random() - 0.5) * 1.5,
-        vy: (Math.random() - 0.5) * 0.8,
-        targetX: Math.random() * (width - 100) + 50,
-        targetY: Math.random() * (maxY - minY) + minY,
-        scale: fish.visual_traits?.scale || 1.0,
-        primary_color: fish.visual_traits?.primary_color || '#00d2ff',
-        secondary_color: fish.visual_traits?.secondary_color || '#3a7bd5',
-        glow: Boolean(fish.visual_traits?.glow),
-        body_type: fish.visual_traits?.body_type || 'oval',
-        tail_angle: 0,
-        tail_speed: 1.0 + Math.random() * 0.5,
-        status: fish.status,
-        is_favorite: fish.is_favorite
-      };
-    });
-
-    fishesStateRef.current = updated;
-  }, [fishes]);
-
-  // Main simulation & render loop
+  // Initialize ThreeGameDirector
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
-    let startTime = performance.now();
-
-    const render = (now: number) => {
-      const time = now - startTime;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
-      const width = canvas.width / dpr;
-      const height = canvas.height / dpr;
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
-
-      // 1. Draw Depth Background & Turbidity
-      drawDepthBackground(ctx, width, height, time, waterQuality);
-
-      // 2. Ambient Plankton & Bubble Particles
-      if (particlesRef.current.length < 35 && Math.random() < 0.25) {
-        particlesRef.current.push({
-          x: Math.random() * width,
-          y: height + 10,
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: -(0.5 + Math.random() * 0.9),
-          radius: 1 + Math.random() * 2,
-          alpha: 0.2 + Math.random() * 0.4,
-          type: Math.random() < 0.7 ? 'bubble' : 'plankton'
-        });
+    const director = new ThreeGameDirector(canvas, {
+      onFishSelected: (fish) => {
+        setSelectedFish(fish);
+        if (onSelectFish) onSelectFish(fish);
+      },
+      onObservationStart: (fishData) => {
+        setObservedFish(fishData);
+      },
+      onObservationEnd: () => {
+        setObservedFish(null);
+      },
+      onFeedSuccess: () => {
+        // Celebratory feedback
+        if (navigator.vibrate) navigator.vibrate(25);
       }
+    });
 
-      particlesRef.current.forEach((p, idx) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        ctx.fillStyle = p.type === 'bubble' ? `rgba(255, 255, 255, ${p.alpha})` : `rgba(102, 252, 241, ${p.alpha})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (p.y < -10 || p.alpha <= 0) {
-          particlesRef.current.splice(idx, 1);
-        }
-      });
-
-      // 3. Update & Draw Food Pellets
-      const activePellets = pelletsRef.current;
-      for (let i = activePellets.length - 1; i >= 0; i--) {
-        const pellet = activePellets[i];
-        pellet.y += pellet.vy;
-        pellet.wobble += 0.08;
-
-        drawPellet(ctx, pellet);
-
-        // Check floor collision
-        if (pellet.y > height - 15) {
-          activePellets.splice(i, 1);
-        }
-      }
-
-      // 4. Update & Draw Fishes
-      const fishesState = fishesStateRef.current;
-      fishesState.forEach(fish => {
-        let minY = 0.08 * height;
-        let maxY = 0.35 * height;
-        if (fish.depth_zone === 'twilight') {
-          minY = 0.35 * height;
-          maxY = 0.70 * height;
-        } else if (fish.depth_zone === 'abyssal') {
-          minY = 0.70 * height;
-          maxY = 0.92 * height;
-        }
-
-        if (fish.status === 'dormant') {
-          // Dormant fish sink and rest slowly
-          const floorY = maxY;
-          fish.y += (floorY - fish.y) * 0.02;
-          fish.vx *= 0.95;
-          fish.vy *= 0.95;
-        } else {
-          // Check for nearby food pellets to chase
-          let nearestPellet: FoodPellet | null = null;
-          let nearestDist = 250; // Detection radius
-
-          for (let pIdx = activePellets.length - 1; pIdx >= 0; pIdx--) {
-            const pellet = activePellets[pIdx];
-            const dist = Math.hypot(pellet.x - fish.x, pellet.y - fish.y);
-            if (dist < nearestDist) {
-              nearestDist = dist;
-              nearestPellet = pellet;
-            }
-
-            // Consumption collision
-            if (dist < 28 * fish.scale) {
-              activePellets.splice(pIdx, 1);
-              if (navigator.vibrate) navigator.vibrate(20);
-            }
-          }
-
-          if (nearestPellet) {
-            // Chase food
-            const angleToPellet = Math.atan2(nearestPellet.y - fish.y, nearestPellet.x - fish.x);
-            fish.vx += Math.cos(angleToPellet) * 0.15;
-            fish.vy += Math.sin(angleToPellet) * 0.15;
-          } else {
-            // Natural autonomous waypoint steering
-            const distToTarget = Math.hypot(fish.targetX - fish.x, fish.targetY - fish.y);
-            if (distToTarget < 30 || Math.random() < 0.005) {
-              fish.targetX = Math.random() * (width - 120) + 60;
-              fish.targetY = Math.random() * (maxY - minY) + minY;
-            }
-
-            const steerAngle = Math.atan2(fish.targetY - fish.y, fish.targetX - fish.x);
-            const speed = (waterQuality < 40 ? 0.03 : 0.06) * (fish.is_favorite ? 1.2 : 1.0);
-            fish.vx += Math.cos(steerAngle) * speed;
-            fish.vy += Math.sin(steerAngle) * speed;
-          }
-
-          // Damping & speed limits
-          const maxSpeed = nearestPellet ? 2.5 : (waterQuality < 40 ? 0.9 : 1.6);
-          const currentSpeed = Math.hypot(fish.vx, fish.vy);
-          if (currentSpeed > maxSpeed) {
-            fish.vx = (fish.vx / currentSpeed) * maxSpeed;
-            fish.vy = (fish.vy / currentSpeed) * maxSpeed;
-          }
-
-          fish.x += fish.vx;
-          fish.y += fish.vy;
-
-          // Stay within depth zone and canvas bounds
-          if (fish.x < 30) { fish.x = 30; fish.vx *= -1; }
-          if (fish.x > width - 30) { fish.x = width - 30; fish.vx *= -1; }
-          if (fish.y < minY) { fish.y = minY; fish.vy *= -1; }
-          if (fish.y > maxY) { fish.y = maxY; fish.vy *= -1; }
-        }
-
-        drawFish(ctx, fish, time);
-      });
-
-      ctx.restore();
-      animFrameRef.current = requestAnimationFrame(render);
-    };
-
-    animFrameRef.current = requestAnimationFrame(render);
+    directorRef.current = director;
+    director.syncFishes(fishes);
+    director.updateWaterQuality(waterQuality);
 
     return () => {
-      cancelAnimationFrame(animFrameRef.current);
+      director.dispose();
+      directorRef.current = null;
     };
+  }, []);
+
+  // Sync fishes data updates
+  useEffect(() => {
+    if (directorRef.current) {
+      directorRef.current.syncFishes(fishes);
+    }
+  }, [fishes]);
+
+  // Sync water quality
+  useEffect(() => {
+    if (directorRef.current) {
+      directorRef.current.updateWaterQuality(waterQuality);
+    }
   }, [waterQuality]);
+
+  // Sync Desktop Mode state
+  useEffect(() => {
+    const director = directorRef.current;
+    if (!director) return;
+
+    if (isDesktopMode) {
+      director.setMode('DESKTOP_MODE');
+      setSelectedFish(null);
+    } else {
+      director.setMode('STANDARD_VIEW');
+      setObservedFish(null);
+    }
+  }, [isDesktopMode]);
 
   // Handle Canvas Resize
   useEffect(() => {
     const handleResize = () => {
       const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (!container || !canvas) return;
+      const director = directorRef.current;
+      if (!container || !director) return;
 
       const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
-
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      director.handleResize(rect.width, rect.height);
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [isDesktopMode]);
 
-  // Handle Click / Tap on Canvas
-  const handleInteraction = (clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-
-    // Check if clicked a fish
-    const clickedFish = fishesStateRef.current.find(f => Math.hypot(f.x - x, f.y - y) < 32 * f.scale);
-    if (clickedFish) {
-      setSelectedFishTooltip({ fish: clickedFish, x, y });
-      const rawFish = fishes.find(f => f.user_fish_id === clickedFish.id);
-      if (rawFish && onSelectFish) {
-        onSelectFish(rawFish);
+  // Keyboard navigation & ESC listener for Desktop Mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isDesktopMode) {
+        handleSetDesktopMode(false);
       }
-      return;
-    } else {
-      setSelectedFishTooltip(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDesktopMode]);
+
+  // Auto-hide controls in Desktop Mode
+  const handleMouseMove = () => {
+    if (!isDesktopMode) return;
+    setShowControls(true);
+
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
     }
 
-    // Drop food if foodMode is active
-    if (foodMode === 'flake' || foodMode === 'super_pellet') {
-      pelletsRef.current.push({
-        id: nextPelletId.current++,
-        x: Math.max(30, Math.min(canvas.width / (window.devicePixelRatio || 1) - 30, x)),
-        y: Math.min(y, 40),
-        vy: 1.2 + Math.random() * 0.6,
-        type: foodMode,
-        wobble: 0
-      });
+    hideTimerRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
 
-      if (navigator.vibrate) navigator.vibrate(15);
+  const handleSetDesktopMode = (enable: boolean) => {
+    if (onToggleDesktopMode) {
+      onToggleDesktopMode(enable);
+    } else {
+      setInternalDesktopMode(enable);
+    }
+
+    // Attempt Native Fullscreen if entering
+    if (enable && containerRef.current) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  // Depth snap trigger
+  const handleDepthSnap = (zone: 'sunlit' | 'twilight' | 'abyssal') => {
+    setActiveZone(zone);
+    if (directorRef.current) {
+      directorRef.current.snapToDepth(zone);
+    }
+  };
+
+  // Canvas Interactions
+  const handlePointerDown = (e: React.PointerEvent) => {
+    const director = directorRef.current;
+    const canvas = canvasRef.current;
+    if (!director || !canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const hitFish = director.handlePointerDown(e.clientX, e.clientY, rect);
+
+    // If no fish was hit and food mode is active, drop food in 3D
+    if (!hitFish && (foodMode === 'flake' || foodMode === 'super_pellet') && !isDesktopMode) {
+      director.feed(foodMode);
       onFeed(foodMode);
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    handleMouseMove();
+    if (directorRef.current) {
+      directorRef.current.handlePointerMove(e.clientX, e.clientY);
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (directorRef.current) {
+      directorRef.current.handlePointerUp();
     }
   };
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[650px] md:h-[750px] rounded-2xl overflow-hidden shadow-2xl border border-sky-900/40 bg-slate-950 select-none"
+      onMouseMove={handleMouseMove}
+      className={`relative select-none overflow-hidden transition-all duration-300 ${
+        isDesktopMode
+          ? 'fixed inset-0 z-50 w-screen h-screen bg-slate-950'
+          : 'w-full h-[650px] md:h-[750px] rounded-3xl shadow-2xl border border-sky-900/40 bg-slate-950'
+      }`}
       style={{ touchAction: 'none' }}
-      onClick={(e) => handleInteraction(e.clientX, e.clientY)}
-      onTouchStart={(e) => {
-        if (e.touches.length > 0) {
-          handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
-        }
-      }}
     >
+      {/* 3D WebGL Canvas */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full block cursor-crosshair"
+        className="w-full h-full block cursor-grab active:cursor-grabbing"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       />
 
-      {/* Depth Markers Overlay (Left edge) */}
-      <div className="absolute left-3 top-0 bottom-0 pointer-events-none flex flex-col justify-between py-4 text-[10px] font-mono tracking-widest text-sky-200/50 uppercase">
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          <span>Sunlit Reef (0m)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-          <span>Twilight Zone (500m)</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-          <span>Abyssal Trench (2500m)</span>
-        </div>
-      </div>
+      {/* STANDARD VIEW: Depth Markers & Quick Jump Pills (Left Edge) */}
+      {!isDesktopMode && (
+        <div className="absolute left-4 top-6 flex flex-col gap-2 z-10 pointer-events-auto">
+          {(['sunlit', 'twilight', 'abyssal'] as const).map((zone) => {
+            const labels = {
+              sunlit: { name: 'Sunlit Reef', depth: '0m', color: 'bg-cyan-400', text: 'text-cyan-300' },
+              twilight: { name: 'Twilight Zone', depth: '500m', color: 'bg-blue-500', text: 'text-blue-300' },
+              abyssal: { name: 'Abyssal Trench', depth: '2500m', color: 'bg-purple-500', text: 'text-purple-300' }
+            };
+            const meta = labels[zone];
+            const isActive = activeZone === zone;
 
-      {/* Selected Fish Tooltip */}
-      {selectedFishTooltip && (
+            return (
+              <button
+                key={zone}
+                onClick={() => handleDepthSnap(zone)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono tracking-wider transition-all backdrop-blur-md border ${
+                  isActive
+                    ? 'bg-slate-900/90 border-cyan-400 text-white shadow-lg shadow-cyan-500/20'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${meta.color} ${isActive ? 'animate-ping' : ''}`}></span>
+                <span>{meta.name}</span>
+                <span className="opacity-60">({meta.depth})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* STANDARD VIEW: Top-Right Desktop Mode Button & Tooltip */}
+      {!isDesktopMode && (
+        <div className="absolute right-4 top-6 z-10 pointer-events-auto flex items-center gap-2">
+          <button
+            onClick={() => handleSetDesktopMode(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500/90 to-yellow-600/90 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-xs md:text-sm shadow-xl shadow-amber-500/20 backdrop-blur-md border border-amber-300/40 transition-all hover:scale-105"
+            title="Switch to ambient fullscreen Desktop Mode with autonomous submarine patrol"
+          >
+            <Maximize2 className="w-4 h-4" />
+            <span>Desktop Mode</span>
+          </button>
+        </div>
+      )}
+
+      {/* DESKTOP MODE: Auto-hiding Ambient Top Bar */}
+      {isDesktopMode && (
         <div
-          className="absolute z-20 bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 text-white rounded-xl p-3 shadow-xl pointer-events-auto transform -translate-x-1/2 -translate-y-full mb-4 max-w-xs animate-in fade-in zoom-in-95 duration-150"
-          style={{
-            left: `${Math.max(120, Math.min(containerRef.current ? containerRef.current.clientWidth - 120 : 300, selectedFishTooltip.x))}px`,
-            top: `${selectedFishTooltip.y - 10}px`
-          }}
-          onClick={(e) => e.stopPropagation()}
+          className={`absolute top-6 left-1/2 -translate-x-1/2 z-20 transition-opacity duration-500 ${
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
         >
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="font-bold text-sm text-cyan-300">
-              {selectedFishTooltip.fish.nickname || selectedFishTooltip.fish.name}
-            </span>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-sky-950/80 border border-sky-600/40 text-sky-300">
-              {selectedFishTooltip.fish.rarity}
-            </span>
+          <div className="flex items-center gap-4 px-5 py-2.5 bg-slate-900/90 backdrop-blur-xl border border-sky-600/40 rounded-full shadow-2xl text-xs text-white">
+            <div className="flex items-center gap-2 font-mono">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              <span className="font-bold tracking-wider text-amber-300">SUBMERSIBLE PATROL ACTIVE</span>
+              <span className="text-slate-400">• Press ESC to exit</span>
+            </div>
+            <button
+              onClick={() => handleSetDesktopMode(false)}
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition-colors"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Exit</span>
+            </button>
           </div>
-          <div className="text-xs text-slate-300 mb-2">
-            Zone: <span className="capitalize text-sky-400">{selectedFishTooltip.fish.depth_zone}</span>
+        </div>
+      )}
+
+      {/* DESKTOP MODE: Nature Documentary Observation HUD Card */}
+      {isDesktopMode && observedFish && (
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-bottom-6 duration-300 pointer-events-none">
+          <div className="bg-slate-900/85 backdrop-blur-xl border border-cyan-400/50 rounded-2xl p-4 shadow-[0_0_35px_rgba(6,182,212,0.3)] text-white flex items-center gap-4 max-w-md min-w-[340px]">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+              <Eye className="w-6 h-6 animate-pulse text-cyan-200" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-cyan-300 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                  Observing Specimen
+                </span>
+                {observedFish.isShiny && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                    SHINY
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-sm text-white mt-0.5 capitalize">
+                {observedFish.speciesId.replace(/_/g, ' ')}
+              </h3>
+              <p className="text-[11px] text-slate-300 font-mono mt-0.5">
+                Zone: <span className="capitalize text-sky-300">{observedFish.depthZone}</span> • Depth ~
+                {observedFish.depthZone === 'sunlit' ? '45m' : observedFish.depthZone === 'twilight' ? '650m' : '2200m'}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400">
-            <span>Status: {selectedFishTooltip.fish.status === 'active' ? '🟢 Swimming' : '💤 Dormant'}</span>
-            {selectedFishTooltip.fish.is_favorite ? <span className="text-amber-400">★ Favorite</span> : null}
+        </div>
+      )}
+
+      {/* STANDARD VIEW: Selected Fish Tooltip / Inspection Card */}
+      {!isDesktopMode && selectedFish && (
+        <div className="absolute right-4 bottom-6 z-20 bg-slate-900/95 backdrop-blur-xl border border-cyan-500/40 text-white rounded-2xl p-4 shadow-2xl max-w-xs pointer-events-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-cyan-300">
+                {selectedFish.nickname || selectedFish.name}
+              </span>
+              {Boolean(selectedFish.is_shiny) && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/40 text-amber-300 flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  SHINY
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedFish(null)}
+              className="text-slate-400 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-300 mb-2 leading-relaxed">
+            {selectedFish.description}
+          </p>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800">
+            <span>Depth: <strong className="text-sky-300 capitalize">{selectedFish.depth_zone}</strong></span>
+            <span>Rarity: <strong className="text-amber-300 capitalize">{selectedFish.rarity}</strong></span>
           </div>
         </div>
       )}

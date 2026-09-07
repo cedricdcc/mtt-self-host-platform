@@ -17,6 +17,7 @@ const RARITY_BADGES: Record<string, { bg: string; text: string; border: string }
 export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
   const [selectedZone, setSelectedZone] = useState<'all' | 'sunlit' | 'twilight' | 'abyssal'>('all');
   const [inspectingSpecies, setInspectingSpecies] = useState<GachaSpecies | null>(null);
+  const [inspectingShiny, setInspectingShiny] = useState<boolean>(false);
 
   const filteredSpecies = codexData.species.filter(s =>
     selectedZone === 'all' ? true : s.depth_zone === selectedZone
@@ -32,11 +33,17 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
               <BookOpen className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2 flex-wrap">
                 <span>The Marine Codex</span>
                 <span className="text-xs font-mono font-normal text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded-full border border-cyan-800">
                   {codexData.total_discovered} / {codexData.total_species} Species
                 </span>
+                {Boolean(codexData.total_shiny_discovered) && (
+                  <span className="text-xs font-mono font-bold text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-500/40 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                    <span>{codexData.total_shiny_discovered} Shinies</span>
+                  </span>
+                )}
               </h2>
               <p className="text-xs text-slate-400">Specimen taxonomy & deep-ocean collection field guide</p>
             </div>
@@ -87,13 +94,24 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
             return (
               <div
                 key={species.id}
-                onClick={() => isDiscovered && setInspectingSpecies(species)}
+                onClick={() => {
+                  if (isDiscovered) {
+                    setInspectingSpecies(species);
+                    setInspectingShiny(Boolean(species.discovered_shiny));
+                  }
+                }}
                 className={`relative p-3.5 rounded-xl border transition-all duration-200 flex flex-col items-center text-center ${
                   isDiscovered
                     ? 'bg-slate-900/80 border-slate-700/80 hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-500/10 cursor-pointer'
                     : 'bg-slate-950 border-slate-900 opacity-60 cursor-not-allowed'
                 }`}
               >
+                {/* Shiny Star Badge */}
+                {species.discovered_shiny && (
+                  <div className="absolute top-2 right-2 bg-amber-500/20 border border-amber-400/40 rounded-full p-1 text-amber-300 shadow-sm" title="✨ Shiny Variant Discovered!">
+                    <Sparkles className="w-3 h-3 text-amber-300" />
+                  </div>
+                )}
                 {/* Species Icon / Silhouette */}
                 <div
                   className={`w-14 h-14 rounded-full flex items-center justify-center mb-2.5 ${
@@ -151,15 +169,26 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
 
             <div className="flex items-center gap-4 mb-4">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center border border-white/20 shadow-lg"
+                className="w-16 h-16 rounded-2xl flex items-center justify-center border border-white/20 shadow-lg relative overflow-hidden"
                 style={{
-                  background: `linear-gradient(135deg, ${inspectingSpecies.visual_traits?.primary_color || '#00d2ff'}, ${inspectingSpecies.visual_traits?.secondary_color || '#3a7bd5'})`
+                  background: inspectingShiny
+                    ? `linear-gradient(135deg, #ffd700, #ff80bf)`
+                    : `linear-gradient(135deg, ${inspectingSpecies.visual_traits?.primary_color || '#00d2ff'}, ${inspectingSpecies.visual_traits?.secondary_color || '#3a7bd5'})`
                 }}
               >
-                <span className="text-3xl select-none">🐟</span>
+                <span className="text-3xl select-none">{inspectingShiny ? '✨' : '🐟'}</span>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">{inspectingSpecies.name}</h3>
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>{inspectingSpecies.name}</span>
+                    {inspectingShiny && (
+                      <span className="text-xs text-amber-300 font-mono font-black px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-400/50">
+                        SHINY
+                      </span>
+                    )}
+                  </h3>
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border ${RARITY_BADGES[inspectingSpecies.rarity].bg} ${RARITY_BADGES[inspectingSpecies.rarity].text} ${RARITY_BADGES[inspectingSpecies.rarity].border}`}>
                     {inspectingSpecies.rarity}
@@ -168,6 +197,29 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
                 </div>
               </div>
             </div>
+
+            {/* Shiny Variant Toggle */}
+            {inspectingSpecies.discovered_shiny && (
+              <div className="flex items-center gap-2 mb-3 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setInspectingShiny(false)}
+                  className={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all ${
+                    !inspectingShiny ? 'bg-cyan-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Standard Form
+                </button>
+                <button
+                  onClick={() => setInspectingShiny(true)}
+                  className={`flex-1 py-1 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1 ${
+                    inspectingShiny ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black' : 'text-amber-400 hover:text-amber-300'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Shiny Form</span>
+                </button>
+              </div>
+            )}
 
             <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 mb-4 text-xs text-slate-300 leading-relaxed">
               {inspectingSpecies.description}
