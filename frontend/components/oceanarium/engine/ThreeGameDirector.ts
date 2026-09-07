@@ -83,7 +83,10 @@ export class ThreeGameDirector {
     this.cameraDirector = new CameraDirector(this.camera);
     this.feedingPhysics = new FeedingPhysics(this.scene);
 
-    // 4. Hook up Submarine Observation Callbacks
+    // 4. Initialize 3D In-Scene Holographic Focus Reticle
+    this.initSelectionReticle();
+
+    // 5. Hook up Submarine Observation Callbacks
     this.submarineDirector.onObservationStart = (fish) => {
       this.observedFish = fish;
       if (this.callbacks.onObservationStart) {
@@ -98,11 +101,94 @@ export class ThreeGameDirector {
       }
     };
 
-    // 5. Start Game Loop
+    // 6. Start Game Loop
     this.startLoop();
   }
 
+  // 3D Holographic Selection Reticle
+  public selectionReticle: THREE.Group | null = null;
+  private reticleTarget: THREE.Object3D | null = null;
+  private reticleRing: THREE.Mesh | null = null;
+  private reticleLine: THREE.Line | null = null;
+
+  private initSelectionReticle(): void {
+    this.selectionReticle = new THREE.Group();
+    this.selectionReticle.visible = false;
+
+    // Glowing cyan ring
+    const ringGeo = new THREE.RingGeometry(1.8, 2.0, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.85,
+      side: THREE.DoubleSide
+    });
+    this.reticleRing = new THREE.Mesh(ringGeo, ringMat);
+    this.selectionReticle.add(this.reticleRing);
+
+    // 4 corner targeting brackets
+    const bracketMat = new THREE.LineBasicMaterial({
+      color: 0x00f0ff,
+      linewidth: 2,
+      transparent: true,
+      opacity: 0.9
+    });
+    const bSize = 0.6;
+    const bDist = 1.9;
+    const bracketOffsets = [
+      { x: -bDist, y: bDist, dx: bSize, dy: -bSize },
+      { x: bDist, y: bDist, dx: -bSize, dy: -bSize },
+      { x: -bDist, y: -bDist, dx: bSize, dy: bSize },
+      { x: bDist, y: -bDist, dx: -bSize, dy: bSize }
+    ];
+
+    bracketOffsets.forEach((b) => {
+      const pts = [
+        new THREE.Vector3(b.x + b.dx, b.y, 0),
+        new THREE.Vector3(b.x, b.y, 0),
+        new THREE.Vector3(b.x, b.y + b.dy, 0)
+      ];
+      const bGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const bLine = new THREE.Line(bGeo, bracketMat);
+      this.selectionReticle!.add(bLine);
+    });
+
+    // Vertical depth leader line to seabed
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, -20, 0)
+    ]);
+    const lineMat = new THREE.LineDashedMaterial({
+      color: 0x38bdf8,
+      dashSize: 0.5,
+      gapSize: 0.3,
+      transparent: true,
+      opacity: 0.5
+    });
+    this.reticleLine = new THREE.Line(lineGeo, lineMat);
+    this.reticleLine.computeLineDistances();
+    this.selectionReticle.add(this.reticleLine);
+
+    this.scene.add(this.selectionReticle);
+  }
+
+  public attachReticle(targetMesh: THREE.Object3D): void {
+    this.reticleTarget = targetMesh;
+    if (this.selectionReticle) {
+      this.selectionReticle.visible = true;
+      this.selectionReticle.position.copy(targetMesh.position);
+    }
+  }
+
+  public detachReticle(): void {
+    this.reticleTarget = null;
+    if (this.selectionReticle) {
+      this.selectionReticle.visible = false;
+    }
+  }
+
   public resetCameraView(duration = 1.0): void {
+    this.detachReticle();
     this.cameraDirector.resetToIsometric(duration);
   }
 
@@ -112,6 +198,9 @@ export class ThreeGameDirector {
 
   public setMode(mode: OceanariumMode): void {
     this.mode = mode;
+    if (mode !== 'INSPECTING_FISH') {
+      this.detachReticle();
+    }
     this.cameraDirector.setMode(mode);
     if (this.callbacks.onModeChanged) {
       this.callbacks.onModeChanged(mode);
@@ -213,6 +302,7 @@ export class ThreeGameDirector {
 
       if (hitObj && hitObj.userData.rawFish) {
         const rawFish = hitObj.userData.rawFish as UserFish;
+        this.attachReticle(hitObj);
         this.cameraDirector.inspectFish(hitObj);
         if (this.callbacks.onFishSelected) {
           this.callbacks.onFishSelected(rawFish);
@@ -279,6 +369,17 @@ export class ThreeGameDirector {
 
       // 7. Update Camera Director
       this.cameraDirector.update(delta, this.submarineDirector, this.observedFish);
+
+      // 7b. Update 3D Holographic Focus Reticle Tracking & Pulse
+      if (this.selectionReticle && this.selectionReticle.visible && this.reticleTarget) {
+        this.selectionReticle.position.lerp(this.reticleTarget.position, 0.2);
+        this.selectionReticle.lookAt(this.camera.position);
+        if (this.reticleRing) {
+          this.reticleRing.rotation.z += delta * 1.5;
+          const pulse = 1.0 + Math.sin(time * 5.0) * 0.08;
+          this.reticleRing.scale.set(pulse, pulse, 1.0);
+        }
+      }
 
       // 8. Render Scene
       this.renderer.render(this.scene, this.camera);

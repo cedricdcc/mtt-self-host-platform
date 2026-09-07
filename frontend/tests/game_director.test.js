@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function run() {
-  console.log('Testing CameraDirector & ThreeGameDirector structural invariants...');
+  console.log('Testing CameraDirector & ThreeGameDirector structural invariants and 3D reticle...');
 
   const cameraPath = path.join(__dirname, '../components/oceanarium/engine/CameraDirector.ts');
   const directorPath = path.join(__dirname, '../components/oceanarium/engine/ThreeGameDirector.ts');
@@ -34,6 +34,10 @@ function run() {
   assert.ok(directorContent.includes('bubbleSystem'), 'Must instantiate BubbleSystem');
   assert.ok(directorContent.includes('resetCameraView'), 'Must expose resetCameraView method');
   assert.ok(directorContent.includes('emitFishMouthPuff'), 'Must emit bubble puffs on feeding');
+
+  // Verify 3D in-scene focus reticle
+  assert.ok(directorContent.includes('attachReticle') || directorContent.includes('selectionReticle'), 'Must implement 3D selection reticle');
+  assert.ok(directorContent.includes('detachReticle'), 'Must implement reticle detachment');
 
   console.log('✓ CameraDirector & ThreeGameDirector invariants PASSED!');
 }
