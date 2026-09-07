@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export interface VisualTraits {
   primary_color: string;
@@ -7,6 +8,7 @@ export interface VisualTraits {
   glow?: boolean;
   body_type?: string;
   fins_type?: string;
+  model_url?: string | null;
 }
 
 export interface SpeciesData {
@@ -19,6 +21,7 @@ export interface SpeciesData {
   primary_color: string;
   secondary_color: string;
   glow?: boolean;
+  model_url?: string | null;
   visual_traits?: VisualTraits;
 }
 
@@ -29,6 +32,9 @@ export class CartoonFishFactory {
   private toonGradientMap: THREE.DataTexture;
   private shinyGradientMap: THREE.DataTexture;
   private sparkleTexture: THREE.CanvasTexture;
+  private gltfLoader: GLTFLoader | null = null;
+  public gltfCache: Map<string, THREE.Group> = new Map();
+  private gltfLoadingPromises: Map<string, Promise<THREE.Group | null>> = new Map();
 
   constructor() {
     this.toonGradientMap = this.createToonGradient([20, 140, 255]);
@@ -88,6 +94,100 @@ export class CartoonFishFactory {
   }
 
   /**
+   * Asynchronously load a GLTF/GLB model from URL with memory caching and pivot centering
+   */
+  public async loadGLB(url: string): Promise<THREE.Group | null> {
+    if (!url) return null;
+    if (this.gltfCache.has(url)) {
+      return this.gltfCache.get(url)!.clone(true);
+    }
+    if (this.gltfLoadingPromises.has(url)) {
+      const model = await this.gltfLoadingPromises.get(url);
+      return model ? model.clone(true) : null;
+    }
+
+    if (!this.gltfLoader && typeof window !== 'undefined') {
+      this.gltfLoader = new GLTFLoader();
+    }
+    if (!this.gltfLoader) return null;
+
+    const promise = new Promise<THREE.Group | null>((resolve) => {
+      this.gltfLoader!.load(
+        url,
+        (gltf) => {
+          const root = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+          if (!root) {
+            resolve(null);
+            return;
+          }
+
+          // Normalize bounding box: scale to target ~2.0 units length
+          const bbox = new THREE.Box3().setFromObject(root);
+          const size = bbox.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const targetSize = 2.0;
+          const normScale = maxDim > 0 ? targetSize / maxDim : 1.0;
+          root.scale.set(normScale, normScale, normScale);
+
+          // Center root around pivot (0,0,0)
+          const center = bbox.getCenter(new THREE.Vector3()).multiplyScalar(normScale);
+          root.position.sub(center);
+
+          const wrapper = new THREE.Group();
+          wrapper.name = `glb_wrapper_${url}`;
+          wrapper.add(root);
+
+          if (gltf.animations && gltf.animations.length > 0) {
+            wrapper.userData.animations = gltf.animations;
+          }
+
+          this.gltfCache.set(url, wrapper);
+          resolve(wrapper.clone(true));
+        },
+        undefined,
+        (err) => {
+          console.warn(`[CartoonFishFactory] Failed to load GLB from ${url}:`, err);
+          resolve(null);
+        }
+      );
+    });
+
+    this.gltfLoadingPromises.set(url, promise);
+    const result = await promise;
+    return result ? result.clone(true) : null;
+  }
+
+  /**
+   * Applies metallic iridescent sheen, emissive pulse, and sparkle particles to a GLB model
+   */
+  public applyShinyToGLB(model: THREE.Group): void {
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach((mat) => {
+            if (mat instanceof THREE.MeshStandardMaterial || mat instanceof THREE.MeshPhysicalMaterial) {
+              mat.metalness = Math.max(mat.metalness || 0, 0.75);
+              mat.roughness = Math.min(mat.roughness || 1, 0.25);
+              mat.emissive = new THREE.Color(0x332200);
+              mat.emissiveIntensity = 0.35;
+              mat.needsUpdate = true;
+            } else if (mat instanceof THREE.MeshBasicMaterial || mat instanceof THREE.MeshToonMaterial) {
+              mat.color.set(this.getShinyColor('#' + mat.color.getHexString()));
+              mat.needsUpdate = true;
+            }
+          });
+        }
+      }
+    });
+
+    // Add sparkly particle emitter
+    const emitter = this.createSparkleAura();
+    model.add(emitter);
+    model.userData.sparkleEmitter = emitter;
+  }
+
+  /**
    * Create a complete cartoon 3D fish model
    */
   public createFishMesh(species: SpeciesData, isShiny: boolean = false): THREE.Group {
@@ -104,6 +204,89 @@ export class CartoonFishFactory {
 
     const bodyType = species.body_type || traits.body_type || 'oval';
     const scaleFactor = (species.scale || traits.scale || 1.0);
+
+    // If a custom 3D GLB model is configured, spawn via GLB pipeline
+    const modelUrl = species.model_url || traits.model_url;
+    if (modelUrl) {
+      group.userData = {
+        speciesId: species.id,
+        bodyType,
+        isShiny,
+        modelUrl,
+        isGLB: true,
+        swimSpeed: 1.0 + Math.random() * 0.4,
+        swimPhase: Math.random() * Math.PI * 2,
+        finWobblePhase: Math.random() * Math.PI * 2
+      };
+
+      const glbContainer = new THREE.Group();
+      glbContainer.name = `glb_container_${species.id}`;
+      group.add(glbContainer);
+      group.userData.glbContainer = glbContainer;
+
+      if (this.gltfCache.has(modelUrl)) {
+        const glbModel = this.gltfCache.get(modelUrl)!.clone(true);
+        glbModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        if (isShiny) {
+          this.applyShinyToGLB(glbModel);
+          group.userData.sparkleEmitter = glbModel.userData.sparkleEmitter;
+        }
+        if (glbModel.userData.animations && glbModel.userData.animations.length > 0) {
+          const mixer = new THREE.AnimationMixer(glbModel);
+          mixer.clipAction(glbModel.userData.animations[0]).play();
+          group.userData.animationMixer = mixer;
+        }
+        glbContainer.add(glbModel);
+      } else {
+        // Build procedural placeholder body while downloading GLB
+        const primaryColor = isShiny ? this.getShinyColor(traits.primary_color) : traits.primary_color;
+        const secondaryColor = isShiny ? '#ffd700' : traits.secondary_color;
+        const bodyMat = new THREE.MeshToonMaterial({
+          color: new THREE.Color(primaryColor),
+          gradientMap: isShiny ? this.shinyGradientMap : this.toonGradientMap,
+          emissive: isShiny ? new THREE.Color('#332200') : (traits.glow ? new THREE.Color(primaryColor).multiplyScalar(0.4) : new THREE.Color(0x000000))
+        });
+        const accentMat = new THREE.MeshToonMaterial({
+          color: new THREE.Color(secondaryColor),
+          gradientMap: this.toonGradientMap,
+          transparent: true,
+          opacity: 0.92
+        });
+
+        const placeholder = this.buildCartoonBody(bodyType, bodyMat, accentMat);
+        placeholder.name = 'glb_placeholder';
+        placeholder.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        glbContainer.add(placeholder);
+
+        if (isShiny) {
+          const sparkle = this.createSparkleAura();
+          group.add(sparkle);
+          group.userData.sparkleEmitter = sparkle;
+        }
+
+        // Asynchronously load
+        this.loadGLB(modelUrl).then((glbModel) => {
+          if (glbModel) {
+            if (placeholder.parent) {
+              glbContainer.remove(placeholder);
+            }
+            glbModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            if (isShiny) {
+              this.applyShinyToGLB(glbModel);
+              group.userData.sparkleEmitter = glbModel.userData.sparkleEmitter;
+            }
+            if (glbModel.userData.animations && glbModel.userData.animations.length > 0) {
+              const mixer = new THREE.AnimationMixer(glbModel);
+              mixer.clipAction(glbModel.userData.animations[0]).play();
+              group.userData.animationMixer = mixer;
+            }
+            glbContainer.add(glbModel);
+          }
+        });
+      }
+
+      return group;
+    }
 
     // Color derivation
     const primaryColor = isShiny ? this.getShinyColor(traits.primary_color) : traits.primary_color;

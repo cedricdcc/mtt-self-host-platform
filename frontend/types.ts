@@ -377,6 +377,7 @@ export interface VisualTraits {
   scale: number;
   glow: boolean;
   body_type: string;
+  model_url?: string | null;
 }
 
 export interface GachaSpecies {

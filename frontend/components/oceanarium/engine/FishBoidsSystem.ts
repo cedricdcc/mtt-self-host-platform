@@ -246,6 +246,16 @@ export class FishBoidsSystem {
         const pulse = 1.0 + Math.sin(time * 3.0) * 0.15;
         mesh.userData.sparkleEmitter.scale.set(pulse, pulse, pulse);
       }
+
+      // GLB skeletal animation mixer update
+      if (mesh.userData.animationMixer) {
+        mesh.userData.animationMixer.update(delta * swimSpeed);
+      }
+
+      // GLB hydrodynamic body oscillation
+      if (mesh.userData.glbContainer) {
+        mesh.userData.glbContainer.rotation.y = Math.sin(time * 4.0 * swimSpeed + swimPhase) * 0.12;
+      }
     });
   }
 

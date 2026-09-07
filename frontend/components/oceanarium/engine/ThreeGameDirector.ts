@@ -236,7 +236,8 @@ export class ThreeGameDirector {
           secondary_color: fish.visual_traits?.secondary_color || '#3a7bd5',
           body_type: fish.visual_traits?.body_type || 'oval',
           scale: fish.visual_traits?.scale || 1.0,
-          glow: Boolean(fish.visual_traits?.glow)
+          glow: Boolean(fish.visual_traits?.glow),
+          model_url: fish.model_url || fish.visual_traits?.model_url || null
         },
         isShiny
       );
