@@ -387,7 +387,8 @@ const CommunityGoalWidget: React.FC<CommunityGoalWidgetProps> = ({ onDismiss, cl
   };
 
   const isAdminPage = location.pathname.startsWith('/admin');
-  if (isAdminPage) {
+  const isOceanariumPage = location.pathname.startsWith('/oceanarium');
+  if (isAdminPage || isOceanariumPage) {
     return null;
   }
 
