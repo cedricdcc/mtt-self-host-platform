@@ -52,6 +52,10 @@ function shouldIgnoreMigrationError(db, filename, err) {
     return columnExists(db, 'user_ecosystem', 'has_gacha_access');
   }
 
+  if (filename === '039_shiny_fishes.sql' && /duplicate column name/i.test(err.message)) {
+    return columnExists(db, 'user_fishes', 'is_shiny');
+  }
+
   return false;
 }
 

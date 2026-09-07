@@ -107,7 +107,7 @@ function getEcosystemState(userIdentifier) {
   eco = applyLazyDecay(eco);
 
   const fishes = db.prepare(`
-    SELECT uf.id as user_fish_id, uf.species_id, uf.nickname, uf.status, uf.caught_at, uf.is_favorite,
+    SELECT uf.id as user_fish_id, uf.species_id, uf.nickname, uf.status, uf.caught_at, uf.is_favorite, uf.is_shiny,
            gs.name, gs.depth_zone, gs.rarity, gs.description, gs.visual_traits
     FROM user_fishes uf
     JOIN gacha_species gs ON uf.species_id = gs.id
@@ -115,6 +115,7 @@ function getEcosystemState(userIdentifier) {
     ORDER BY uf.is_favorite DESC, uf.caught_at DESC
   `).all(userId).map(f => ({
     ...f,
+    is_shiny: Boolean(f.is_shiny),
     visual_traits: typeof f.visual_traits === 'string' ? JSON.parse(f.visual_traits) : f.visual_traits
   }));
 
@@ -274,17 +275,20 @@ function pullGacha(userIdentifier, count = 1) {
         pityLegendary += 1;
       }
 
+      // Check 1/500 shiny chance
+      const isShiny = Math.random() < (1 / 500) ? 1 : 0;
+
       // Insert fish
       const insertResult = db.prepare(`
-        INSERT INTO user_fishes (user_id, species_id, status)
-        VALUES (?, ?, 'active')
-      `).run(userId, rolled.id);
+        INSERT INTO user_fishes (user_id, species_id, status, is_shiny)
+        VALUES (?, ?, 'active', ?)
+      `).run(userId, rolled.id, isShiny);
 
       // Log pull
       db.prepare(`
-        INSERT INTO gacha_pull_logs (user_id, species_id, pull_type)
-        VALUES (?, ?, ?)
-      `).run(userId, rolled.id, count === 10 ? 'multi' : 'single');
+        INSERT INTO gacha_pull_logs (user_id, species_id, pull_type, is_shiny)
+        VALUES (?, ?, ?, ?)
+      `).run(userId, rolled.id, count === 10 ? 'multi' : 'single', isShiny);
 
       results.push({
         user_fish_id: insertResult.lastInsertRowid,
@@ -294,7 +298,8 @@ function pullGacha(userIdentifier, count = 1) {
         rarity: rolled.rarity,
         description: rolled.description,
         visual_traits: typeof rolled.visual_traits === 'string' ? JSON.parse(rolled.visual_traits) : rolled.visual_traits,
-        is_new_discovery: !isDuplicate
+        is_new_discovery: !isDuplicate,
+        is_shiny: Boolean(isShiny)
       });
     }
 
@@ -334,7 +339,7 @@ function getCodex(userIdentifier) {
 
   const allSpecies = db.prepare("SELECT * FROM gacha_species ORDER BY depth_zone, drop_weight DESC").all();
   const userCounts = db.prepare(`
-    SELECT species_id, COUNT(*) as count, MIN(caught_at) as first_caught_at
+    SELECT species_id, COUNT(*) as count, MIN(caught_at) as first_caught_at, MAX(is_shiny) as has_shiny
     FROM user_fishes
     WHERE user_id = ?
     GROUP BY species_id
@@ -342,7 +347,11 @@ function getCodex(userIdentifier) {
 
   const countMap = new Map();
   userCounts.forEach(c => {
-    countMap.set(c.species_id, { count: c.count, first_caught_at: c.first_caught_at });
+    countMap.set(c.species_id, {
+      count: c.count,
+      first_caught_at: c.first_caught_at,
+      has_shiny: Boolean(c.has_shiny)
+    });
   });
 
   const species = allSpecies.map(s => {
@@ -355,12 +364,14 @@ function getCodex(userIdentifier) {
       description: s.description,
       visual_traits: typeof s.visual_traits === 'string' ? JSON.parse(s.visual_traits) : s.visual_traits,
       is_discovered: Boolean(userCatch),
+      discovered_shiny: Boolean(userCatch && userCatch.has_shiny),
       caught_count: userCatch ? userCatch.count : 0,
       first_caught_at: userCatch ? userCatch.first_caught_at : null
     };
   });
 
   const totalDiscovered = species.filter(s => s.is_discovered).length;
+  const totalShinyDiscovered = species.filter(s => s.discovered_shiny).length;
   const completionPercentage = allSpecies.length > 0
     ? Math.round((totalDiscovered / allSpecies.length) * 100)
     : 0;
@@ -369,6 +380,7 @@ function getCodex(userIdentifier) {
     species,
     total_species: allSpecies.length,
     total_discovered: totalDiscovered,
+    total_shiny_discovered: totalShinyDiscovered,
     completion_percentage: completionPercentage
   };
 }
