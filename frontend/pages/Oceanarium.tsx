@@ -14,17 +14,46 @@ export const Oceanarium: React.FC = () => {
   const [ecosystemData, setEcosystemData] = useState<EcosystemResponse | null>(null);
   const [codexData, setCodexData] = useState<CodexResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'oceanarium' | 'dive' | 'codex'>('oceanarium');
   const [foodMode, setFoodMode] = useState<'none' | 'flake' | 'super_pellet'>('flake');
   const [isDesktopMode, setIsDesktopMode] = useState(false);
 
-  const hasAccess = Boolean(user?.isAdmin || user?.isSuperAdmin || user?.hasGachaAccess || user?.is_admin === 1);
+  // Full 3D Aquarium habitat access is reserved for admins, superadmins, and users granted access
+  const hasAquariumAccess = Boolean(user?.isAdmin || user?.isSuperAdmin || user?.hasGachaAccess || user?.is_admin === 1);
+  // Universal access to Oceanarium/Codex for all authenticated users
+  const hasAccess = Boolean(user);
+
+  // Responsive device viewport detection
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  const [activeTab, setActiveTab] = useState<'oceanarium' | 'dive' | 'codex'>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return 'codex';
+    }
+    return hasAquariumAccess ? 'oceanarium' : 'codex';
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && activeTab === 'oceanarium') {
+        setActiveTab('codex');
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeTab]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [eco, codex] = await Promise.all([
-        ecosystemService.fetchEcosystem(),
+        ecosystemService.fetchEcosystem().catch(() => null),
         ecosystemService.fetchCodex()
       ]);
       setEcosystemData(eco);
@@ -61,10 +90,10 @@ export const Oceanarium: React.FC = () => {
     const res = await ecosystemService.pullGacha(count);
     // Reload ecosystem & codex
     const [freshEco, freshCodex] = await Promise.all([
-      ecosystemService.fetchEcosystem(),
+      ecosystemService.fetchEcosystem().catch(() => null),
       ecosystemService.fetchCodex()
     ]);
-    setEcosystemData(freshEco);
+    if (freshEco) setEcosystemData(freshEco);
     setCodexData(freshCodex);
     return res;
   };
@@ -78,25 +107,22 @@ export const Oceanarium: React.FC = () => {
     );
   }
 
-  // 2. Access Guard Check
-  if (!user || !hasAccess) {
+  // 2. Unauthenticated check
+  if (!user) {
     return (
-      <div className="max-w-xl mx-auto my-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-2xl">
-        <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center mx-auto mb-4">
-          <ShieldAlert className="w-8 h-8" />
+      <div className="max-w-xl mx-auto my-16 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-2xl text-white">
+        <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto mb-4">
+          <Fish className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Undersea Laboratory</h2>
+        <h2 className="text-2xl font-bold mb-2">Marine Codex & Oceanarium</h2>
         <p className="text-sm text-slate-400 leading-relaxed mb-6">
-          Access to the living Oceanarium, Coral Habitats, and Gacha Dive Station is currently restricted to platform administrators and authorized users.
+          Please sign in to view your marine species codex and participate in deep ocean expeditions.
         </p>
-        <span className="text-xs font-mono px-3 py-1 bg-slate-800 text-slate-400 rounded-full border border-slate-700">
-          Admin Access Required
-        </span>
       </div>
     );
   }
 
-  if (loading || !ecosystemData) {
+  if (loading || !codexData) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[600px] text-cyan-400 gap-3">
         <RefreshCw className="w-8 h-8 animate-spin" />
@@ -105,7 +131,23 @@ export const Oceanarium: React.FC = () => {
     );
   }
 
-  const { ecosystem, fishes } = ecosystemData;
+  const ecosystem = ecosystemData?.ecosystem || {
+    id: 0,
+    user_id: user.id || user.user_id || 0,
+    water_quality: 100,
+    cleanliness: 100,
+    food_flakes: 5,
+    super_pellets: 1,
+    tickets: 5,
+    level: 1,
+    experience: 0,
+    last_fed_at: null,
+    last_cleaned_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  const fishes = ecosystemData?.fishes || [];
 
   const getWaterQualityBadge = (quality: number) => {
     if (quality >= 80) {
@@ -123,57 +165,56 @@ export const Oceanarium: React.FC = () => {
   const badge = getWaterQualityBadge(ecosystem.water_quality);
 
   return (
-    <div className="w-full px-3 sm:px-6 lg:px-8 py-4 space-y-4">
+    <div className="w-full px-3 sm:px-6 lg:px-8 py-4 space-y-4 max-w-7xl mx-auto">
       {/* Top Header & HUD */}
       <div className="bg-slate-900/90 backdrop-blur-xl border border-sky-800/40 rounded-3xl p-4 md:p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-        {/* Left: Title & Water Health */}
+        {/* Left: Title & Collection / Water Health */}
         <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20 flex-shrink-0">
             <Fish className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">The Oceanarium</h1>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Admin Beta
+              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
+                {isMobile ? 'Marine Codex & Dive' : 'The Oceanarium'}
+              </h1>
+              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                {isMobile ? 'Mobile Field Guide' : hasAquariumAccess ? 'Admin Beta' : 'Codex & Dive'}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1.5 ${badge.bg} ${badge.text}`}>
-                <Droplets className="w-3 h-3" />
-                <span>Water Quality: {ecosystem.water_quality}% ({badge.label})</span>
-              </span>
+              {!isMobile && hasAquariumAccess ? (
+                <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1.5 ${badge.bg} ${badge.text}`}>
+                  <Droplets className="w-3 h-3" />
+                  <span>Water Quality: {ecosystem.water_quality}% ({badge.label})</span>
+                </span>
+              ) : (
+                <span className="text-xs px-2.5 py-0.5 rounded-full border font-medium flex items-center gap-1.5 bg-cyan-950/80 border-cyan-500/30 text-cyan-400 font-mono">
+                  <span>{codexData.total_discovered} / {codexData.total_species} Species Collected ({codexData.completion_percentage}%)</span>
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Center: Tabs Switcher */}
+        {/* Center: Tabs Switcher (Desktop or Mobile) */}
         <div className="flex items-center p-1 bg-slate-950 rounded-2xl border border-slate-800 w-full md:w-auto justify-center">
-          <button
-            onClick={() => setActiveTab('oceanarium')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${
-              activeTab === 'oceanarium'
-                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Fish className="w-4 h-4" />
-            <span>Oceanarium</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('dive')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${
-              activeTab === 'dive'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Compass className="w-4 h-4" />
-            <span>Dive Station</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/30 font-mono">
-              {ecosystem.tickets}
-            </span>
-          </button>
+          {/* Only render 3D Aquarium Tab on Desktop for authorized users */}
+          {!isMobile && hasAquariumAccess && (
+            <button
+              onClick={() => setActiveTab('oceanarium')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+                activeTab === 'oceanarium'
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Fish className="w-4 h-4" />
+              <span>Aquarium (3D)</span>
+            </button>
+          )}
+
+          {/* Codex Tab (always available on mobile and desktop) */}
           <button
             onClick={() => setActiveTab('codex')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${
@@ -184,11 +225,30 @@ export const Oceanarium: React.FC = () => {
           >
             <BookOpen className="w-4 h-4" />
             <span>Codex</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono text-purple-200">
+              {codexData.total_discovered}/{codexData.total_species}
+            </span>
+          </button>
+
+          {/* Dive Station Tab (always available on mobile and desktop) */}
+          <button
+            onClick={() => setActiveTab('dive')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+              activeTab === 'dive'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Compass className="w-4 h-4" />
+            <span>Dive Station</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/40 font-mono font-bold text-amber-200">
+              {ecosystem.tickets}
+            </span>
           </button>
         </div>
 
-        {/* Right: Quick Inventory / Feed Selector */}
-        {activeTab === 'oceanarium' && (
+        {/* Right: Quick Inventory / Feed Selector (Desktop Only for Aquarium) */}
+        {!isMobile && hasAquariumAccess && activeTab === 'oceanarium' && (
           <div className="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-2xl border border-slate-800">
             <button
               onClick={() => setFoodMode('flake')}
@@ -228,7 +288,8 @@ export const Oceanarium: React.FC = () => {
 
       {/* Main Viewport Content */}
       <div className="relative">
-        {activeTab === 'oceanarium' && (
+        {/* Only instantiate Three.js canvas when on Desktop for authorized users */}
+        {!isMobile && hasAquariumAccess && activeTab === 'oceanarium' && (
           <OceanariumCanvas
             fishes={fishes}
             waterQuality={ecosystem.water_quality}
@@ -243,41 +304,39 @@ export const Oceanarium: React.FC = () => {
           <DiveStation
             ecosystem={ecosystem}
             onPull={handlePull}
-            onBackToTank={() => setActiveTab('oceanarium')}
+            onBackToTank={() => setActiveTab(isMobile || !hasAquariumAccess ? 'codex' : 'oceanarium')}
           />
         )}
 
-        {activeTab === 'codex' && codexData && (
+        {activeTab === 'codex' && (
           <MarineCodex codexData={codexData} />
         )}
       </div>
 
-      {/* Mobile Ergonomic Thumb Dock (Below Viewport) */}
-      <div className="md:hidden flex items-center justify-between gap-2 p-3 bg-slate-900/95 backdrop-blur-xl border border-sky-800/40 rounded-2xl shadow-xl">
+      {/* Mobile Ergonomic Thumb Dock (Below Viewport on Phones) */}
+      <div className="md:hidden flex items-center justify-between gap-3 p-3 bg-slate-900/95 backdrop-blur-xl border border-sky-800/40 rounded-2xl shadow-xl">
         <button
-          onClick={() => handleFeed('flake')}
-          disabled={ecosystem.food_flakes < 1}
-          className="flex-1 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-40"
+          onClick={() => setActiveTab('codex')}
+          className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+            activeTab === 'codex'
+              ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/20'
+              : 'bg-slate-800 border border-slate-700 text-slate-300'
+          }`}
         >
-          <span>🍞 Flake</span>
-          <span className="font-mono">({ecosystem.food_flakes})</span>
+          <BookOpen className="w-4 h-4" />
+          <span>Marine Codex</span>
         </button>
 
         <button
           onClick={() => setActiveTab('dive')}
-          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1 shadow-lg shadow-amber-500/20"
+          className={`flex-1 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+            activeTab === 'dive'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-lg shadow-amber-500/20 font-black'
+              : 'bg-slate-800 border border-slate-700 text-amber-300'
+          }`}
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>DIVE ({ecosystem.tickets})</span>
-        </button>
-
-        <button
-          onClick={() => handleFeed('super_pellet')}
-          disabled={ecosystem.super_pellets < 1}
-          className="flex-1 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-40"
-        >
-          <span>🔮 Pellet</span>
-          <span className="font-mono">({ecosystem.super_pellets})</span>
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span>Dive Station ({ecosystem.tickets})</span>
         </button>
       </div>
     </div>

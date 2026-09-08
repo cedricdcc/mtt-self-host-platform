@@ -24,7 +24,8 @@ const OceanariumRoute: React.FC<OceanariumRouteProps> = ({ children }) => {
   }
 
   // All authenticated users can access the Oceanarium / Codex experience.
-  // The 3D Aquarium tab is managed adaptively per device and permissions within the page.
+  // Full 3D habitat access is resolved inside Oceanarium: (user?.isAdmin || user?.isSuperAdmin || user?.hasGachaAccess)
+  const hasGachaAccess = Boolean(user?.hasGachaAccess || user?.isAdmin || user?.isSuperAdmin || isAuthenticated);
   return <>{children}</>;
 };
 
