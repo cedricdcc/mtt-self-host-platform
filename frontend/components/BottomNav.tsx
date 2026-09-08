@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, TrendingUp, Target } from 'lucide-react';
+import { Home, TrendingUp, Target, Fish } from 'lucide-react';
 import { backendApi } from '../services/api';
 import { ApiCommunityGoal, ApiCommunityGoalProgress } from '../types';
 import NotificationBell from './NotificationBell';
@@ -48,6 +48,11 @@ const BottomNav: React.FC = () => {
       path: '/dashboard',
       icon: Home,
       label: 'Home',
+    },
+    {
+      path: '/oceanarium',
+      icon: Fish,
+      label: 'Codex',
     },
     {
       path: '/leaderboard',

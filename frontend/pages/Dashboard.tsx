@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, Award, TrendingUp, Clock, ChevronRight, Activity, Zap, Settings, ArrowRight, MessageSquare, MessageCircle, FileText, PlusCircle, Check, X, Loader2, Globe, AlertCircle } from 'lucide-react';
+import { BookOpen, Award, TrendingUp, Clock, ChevronRight, Activity, Zap, Settings, ArrowRight, MessageSquare, MessageCircle, FileText, PlusCircle, Check, X, Loader2, Globe, AlertCircle, Fish } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { backendApi } from '../services/api';
 import { ApiTerm, ApiUserActivity, ApiPublicUser, ApiLanguage } from '../types';
@@ -251,6 +251,29 @@ const Dashboard: React.FC = () => {
           aria-label="Settings"
         >
           <Settings size={24} />
+        </Link>
+      </div>
+
+      {/* Mobile Marine Codex & Gacha Banner (md:hidden) */}
+      <div className="md:hidden mb-6 p-4 rounded-2xl bg-gradient-to-br from-slate-900 via-sky-950 to-slate-900 border border-cyan-500/30 shadow-lg text-white">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center text-cyan-300">
+            <Fish size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-base text-white">Marine Codex</h3>
+            <p className="text-xs text-cyan-300/80">Discover & collect species</p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-300 mb-3">
+          Dive into the deep sea, unlock funny field guides, and complete your marine catalog!
+        </p>
+        <Link
+          to="/oceanarium"
+          className="w-full py-2.5 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+        >
+          <span>Open Marine Codex & Dive</span>
+          <ArrowRight size={14} />
         </Link>
       </div>
 

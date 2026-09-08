@@ -98,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path ? 'text-marine-600 dark:text-marine-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:text-marine-600 dark:hover:text-marine-300';
 
   const topmostNonEnglishLang = getPreferredNonEnglishLanguage(user);
-  const canAccessOceanarium = Boolean(user && (user.isAdmin || user.isSuperAdmin || user.hasGachaAccess));
+  const canAccessOceanarium = Boolean(isAuthenticated || user?.hasGachaAccess || user?.isSuperAdmin);
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300 w-full max-w-full overflow-x-hidden">
