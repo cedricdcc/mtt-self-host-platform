@@ -1,11 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireEcosystemAccess } = require('../middleware/admin.middleware');
+const { requireAuth } = require('../middleware/admin.middleware');
 const ecosystemService = require('../services/ecosystem.service');
 
-// All gacha routes require authentication and ecosystem access (admin, superadmin, or granted access)
+// All gacha routes require authentication
 router.use(requireAuth);
-router.use(requireEcosystemAccess);
 
 /**
  * @openapi
