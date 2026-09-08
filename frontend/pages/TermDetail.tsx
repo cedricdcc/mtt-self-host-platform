@@ -950,8 +950,9 @@ Original Text (${fieldName}): "${field.original_value}"`;
           {displayCategory}
         </span>
         <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">{displayLabel}</h1>
-        <a href={term.uri} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs text-slate-400 hover:text-marine-600 transition-colors">
-          {term.uri} <ExternalLink size={12} className="ml-1" />
+        <a href={term.uri} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-xs text-slate-400 hover:text-marine-600 transition-colors max-w-full min-w-0" title={term.uri}>
+          <span className="truncate max-w-[calc(100vw-3.5rem)] md:max-w-xl">{term.uri}</span>
+          <ExternalLink size={12} className="ml-1 flex-shrink-0" />
         </a>
       </div>
 

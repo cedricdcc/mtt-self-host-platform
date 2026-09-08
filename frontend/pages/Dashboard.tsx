@@ -463,18 +463,18 @@ const Dashboard: React.FC = () => {
                     const details = parseExtra(activity.extra);
                     
                     return (
-                      <div key={activity.id} className="flex items-start pb-4 border-b border-slate-100 dark:border-slate-700 last:border-0 last:pb-0">
+                      <div key={activity.id} className="flex items-start pb-4 border-b border-slate-100 dark:border-slate-700 last:border-0 last:pb-0 min-w-0">
                         <div className="w-2 h-2 mt-2 rounded-full bg-marine-500 mr-3 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-sm text-slate-800 dark:text-slate-200">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-slate-800 dark:text-slate-200 truncate">
                             <span className="capitalize font-medium">{formatActivityAction(activity.action)}</span>
                             {' '}for{' '}
                             {termUri ? (
-                              <Link to={`/term/${encodeURIComponent(termUri)}`} className="font-medium text-marine-600 hover:underline">
+                              <Link to={`/term/${encodeURIComponent(termUri)}`} className="font-medium text-marine-600 hover:underline inline-block max-w-[200px] sm:max-w-xs truncate align-bottom" title={termLabel}>
                                 "{termLabel}"
                               </Link>
                             ) : (
-                              <span className="font-medium text-slate-500">
+                              <span className="font-medium text-slate-500 inline-block max-w-[200px] sm:max-w-xs truncate align-bottom" title={termLabel}>
                                 "{termLabel}"
                               </span>
                             )}
@@ -532,8 +532,8 @@ const Dashboard: React.FC = () => {
                       </span>
                     </div>
                     
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                      Term: <span className="font-semibold text-marine-600 dark:text-marine-400">{disc.term_label || disc.term_uri.split('/').pop()}</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 truncate">
+                      Term: <span className="font-semibold text-marine-600 dark:text-marine-400 truncate inline-block max-w-[200px] sm:max-w-xs align-bottom">{disc.term_label || disc.term_uri.split('/').pop()}</span>
                     </p>
                     
                     <div className="flex justify-between items-center text-xs text-slate-400">
@@ -584,8 +584,8 @@ const Dashboard: React.FC = () => {
                       "{draft.value.length > 120 ? draft.value.substring(0, 120) + '...' : draft.value}"
                     </p>
                     
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Term: <span className="font-semibold text-marine-600 dark:text-marine-400">{draft.term_label || draft.term_uri.split('/').pop()}</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      Term: <span className="font-semibold text-marine-600 dark:text-marine-400 truncate inline-block max-w-[200px] sm:max-w-xs align-bottom">{draft.term_label || draft.term_uri.split('/').pop()}</span>
                     </p>
                   </Link>
                 ))}
