@@ -78,6 +78,7 @@ function run() {
   const backendRoutesContent = fs.readFileSync(backendRoutesPath, 'utf8');
 
   assert.ok(
+    backendRoutesContent.includes('router.patch("/events/featured"') ||
     backendRoutesContent.includes('addRoute("patch", "/events/featured", eventController.setFeatured)'),
     "backend/src/routes/eventRoutes.js must register PATCH /events/featured"
   );

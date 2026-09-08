@@ -3,8 +3,9 @@ const router = express.Router();
 const { requireAuth, requireEcosystemAccess } = require('../middleware/admin.middleware');
 const ecosystemService = require('../services/ecosystem.service');
 
-// All ecosystem routes require authentication
+// All ecosystem routes require authentication and ecosystem access (admin, superadmin, or granted access)
 router.use(requireAuth);
+router.use(requireEcosystemAccess);
 
 /**
  * @openapi
@@ -52,7 +53,7 @@ router.get('/', (req, res) => {
  *       200:
  *         description: Updated ecosystem status
  */
-router.post('/feed', requireEcosystemAccess, (req, res) => {
+router.post('/feed', (req, res) => {
   try {
     const userId = req.session.user.id || req.session.user.user_id;
     const { food_type } = req.body;

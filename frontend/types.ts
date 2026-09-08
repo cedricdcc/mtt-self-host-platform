@@ -451,7 +451,10 @@ export interface CodexResponse {
   species: GachaSpecies[];
   total_discovered: number;
   total_species: number;
-  zone_breakdown: Record<string, { discovered: number; total: number }>;
+  completion_percentage?: number;
+  total_shiny_discovered?: number;
+  tickets?: number;
+  zone_breakdown?: Record<string, { discovered: number; total: number }>;
 }
 
 export interface AdminGachaUser {

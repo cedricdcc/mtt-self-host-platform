@@ -376,12 +376,15 @@ function getCodex(userIdentifier) {
     ? Math.round((totalDiscovered / allSpecies.length) * 100)
     : 0;
 
+  const eco = ensureUserEcosystem(userId);
+
   return {
     species,
     total_species: allSpecies.length,
     total_discovered: totalDiscovered,
     total_shiny_discovered: totalShinyDiscovered,
-    completion_percentage: completionPercentage
+    completion_percentage: completionPercentage,
+    tickets: eco.tickets
   };
 }
 

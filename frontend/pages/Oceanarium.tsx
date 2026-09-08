@@ -138,7 +138,7 @@ export const Oceanarium: React.FC = () => {
     cleanliness: 100,
     food_flakes: 5,
     super_pellets: 1,
-    tickets: 5,
+    tickets: codexData?.tickets ?? 5,
     level: 1,
     experience: 0,
     last_fed_at: null,
