@@ -278,36 +278,59 @@ router.post("/admin/mail/settings", requireAdmin, apiLimiter, (req, res) => {
  * /api/admin/mail/test:
  *   post:
  *     summary: Send a synchronous test email to verify SMTP configuration (admin only)
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recipientEmail:
+ *                 type: string
+ *                 description: Optional recipient email address. Defaults to configured superadmin/admin email.
  */
 router.post("/admin/mail/test", requireAdmin, apiLimiter, async (req, res) => {
   try {
     const db = getDatabase();
-    
-    // Find superadmin(s) with configured emails
-    const users = db.prepare("SELECT email, extra FROM users WHERE email IS NOT NULL AND is_banned = 0").all();
+    const { recipientEmail, targetEmail: bodyTargetEmail } = req.body || {};
+    const requestedEmail = recipientEmail || bodyTargetEmail;
     let targetEmail = null;
-    
-    for (const user of users) {
-      try {
-        const extra = user.extra ? JSON.parse(user.extra) : {};
-        if (extra && extra.is_superadmin === true) {
-          targetEmail = user.email;
-          break;
-        }
-      } catch (e) {
-        // Ignore json parse error
+
+    if (requestedEmail && typeof requestedEmail === "string" && requestedEmail.trim()) {
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const trimmed = requestedEmail.trim();
+      if (!emailPattern.test(trimmed) || trimmed.length > 255) {
+        return res.status(400).json({ 
+          error: "Invalid recipient email address format." 
+        });
       }
-    }
-    
-    // Fallback to currently logged-in administrator email if no superadmin email found
-    if (!targetEmail && req.session.user && req.session.user.email) {
-      targetEmail = req.session.user.email;
-      console.log(`[Admin Mail] No superadmin email found. Falling back to logged-in admin email: ${targetEmail}`);
+      targetEmail = trimmed;
+    } else {
+      // Find superadmin(s) with configured emails
+      const users = db.prepare("SELECT email, extra FROM users WHERE email IS NOT NULL AND is_banned = 0").all();
+      
+      for (const user of users) {
+        try {
+          const extra = user.extra ? JSON.parse(user.extra) : {};
+          if (extra && extra.is_superadmin === true) {
+            targetEmail = user.email;
+            break;
+          }
+        } catch (e) {
+          // Ignore json parse error
+        }
+      }
+      
+      // Fallback to currently logged-in administrator email if no superadmin email found
+      if (!targetEmail && req.session.user && req.session.user.email) {
+        targetEmail = req.session.user.email;
+        console.log(`[Admin Mail] No superadmin email found. Falling back to logged-in admin email: ${targetEmail}`);
+      }
     }
     
     if (!targetEmail) {
       return res.status(400).json({ 
-        error: "No superadmin or admin email address configured in the platform. Please verify your profile settings." 
+        error: "No recipient email provided, and no superadmin or admin email address configured in the platform. Please verify your profile settings." 
       });
     }
 
@@ -338,22 +361,52 @@ router.post("/admin/mail/test", requireAdmin, apiLimiter, async (req, res) => {
  * /api/admin/mail/test-specific:
  *   post:
  *     summary: Send a specific test email template to verify styling and copy (admin only)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - templateName
+ *             properties:
+ *               templateName:
+ *                 type: string
+ *               tone:
+ *                 type: string
+ *               recipientEmail:
+ *                 type: string
+ *                 description: Optional recipient email address. Defaults to logged-in admin email.
  */
 router.post("/admin/mail/test-specific", requireAdmin, apiLimiter, async (req, res) => {
   try {
-    const { templateName, tone } = req.body;
+    const { templateName, tone, recipientEmail, targetEmail: bodyTargetEmail } = req.body || {};
     const db = getDatabase();
     
-    // Resolve logged in admin email
-    let targetEmail = req.session.user && req.session.user.email;
-    if (!targetEmail) {
-      // Find superadmin fallback
-      const users = db.prepare("SELECT email FROM users WHERE email IS NOT NULL AND is_banned = 0").all();
-      targetEmail = users[0]?.email;
+    const requestedEmail = recipientEmail || bodyTargetEmail;
+    let targetEmail = null;
+
+    if (requestedEmail && typeof requestedEmail === "string" && requestedEmail.trim()) {
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const trimmed = requestedEmail.trim();
+      if (!emailPattern.test(trimmed) || trimmed.length > 255) {
+        return res.status(400).json({ 
+          error: "Invalid recipient email address format." 
+        });
+      }
+      targetEmail = trimmed;
+    } else {
+      // Resolve logged in admin email
+      targetEmail = req.session.user && req.session.user.email;
+      if (!targetEmail) {
+        // Find superadmin fallback
+        const users = db.prepare("SELECT email FROM users WHERE email IS NOT NULL AND is_banned = 0").all();
+        targetEmail = users[0]?.email;
+      }
     }
     
     if (!targetEmail) {
-      return res.status(400).json({ error: "No email address found for testing." });
+      return res.status(400).json({ error: "No recipient email provided, and no email address found for testing." });
     }
 
     const testTone = tone || "casual";

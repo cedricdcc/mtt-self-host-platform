@@ -4,6 +4,7 @@ import { backendApi } from '../../services/api';
 import { CONFIG } from '../../config';
 import toast from 'react-hot-toast';
 import { blogRegistry } from '../../src/blogRegistry';
+import { useAuth } from '../../context/AuthContext';
 
 interface MailItem {
   id: number;
@@ -30,14 +31,24 @@ const AdminMailSettings: React.FC = () => {
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
   // Global settings & SMTP test states
+  const { user } = useAuth();
   const [disableAllEmails, setDisableAllEmails] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+
+  // Recipient email for test mail
+  const [testRecipientEmail, setTestRecipientEmail] = useState('');
 
   // Specific template test states
   const [testTemplateName, setTestTemplateName] = useState('inactive-7day');
   const [testTone, setTestTone] = useState('casual');
   const [isTestingSpecific, setIsTestingSpecific] = useState(false);
+
+  useEffect(() => {
+    if (user?.email && !testRecipientEmail) {
+      setTestRecipientEmail(user.email);
+    }
+  }, [user?.email]);
 
   // Blogpost broadcast state
   const [isSendingBlogpost, setIsSendingBlogpost] = useState<string | null>(null);
@@ -108,11 +119,27 @@ const AdminMailSettings: React.FC = () => {
 
   const handleSendTestEmail = async () => {
     setIsTestingSmtp(true);
-    const loadingToast = toast.loading('Sending test email via SMTP...');
+    const recipient = testRecipientEmail.trim();
+    if (recipient) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipient)) {
+        toast.error('Please enter a valid recipient email address.');
+        setIsTestingSmtp(false);
+        return;
+      }
+    }
+
+    const loadingToast = toast.loading(`Sending test email${recipient ? ` to ${recipient}` : ''} via SMTP...`);
     try {
       const response = await fetch(`${CONFIG.API_URL}/admin/mail/test`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
+        body: JSON.stringify({
+          recipientEmail: recipient || undefined,
+        }),
       });
       
       toast.dismiss(loadingToast);
@@ -135,7 +162,17 @@ const AdminMailSettings: React.FC = () => {
 
   const handleSendTestSpecific = async () => {
     setIsTestingSpecific(true);
-    const loadingToast = toast.loading(`Sending test specific email (${testTemplateName})...`);
+    const recipient = testRecipientEmail.trim();
+    if (recipient) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipient)) {
+        toast.error('Please enter a valid recipient email address.');
+        setIsTestingSpecific(false);
+        return;
+      }
+    }
+
+    const loadingToast = toast.loading(`Sending test specific email (${testTemplateName})${recipient ? ` to ${recipient}` : ''}...`);
     try {
       const response = await fetch(`${CONFIG.API_URL}/admin/mail/test-specific`, {
         method: 'POST',
@@ -145,13 +182,15 @@ const AdminMailSettings: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({
           templateName: testTemplateName,
-          tone: testTone
+          tone: testTone,
+          recipientEmail: recipient || undefined,
         })
       });
       
       toast.dismiss(loadingToast);
       if (response.ok) {
-        toast.success(`Test email (${testTemplateName}) sent successfully!`);
+        const data = await response.json();
+        toast.success(data.message || `Test email (${testTemplateName}) sent successfully!`);
         fetchMailQueue(currentPage);
       } else {
         const data = await response.json();
@@ -492,6 +531,34 @@ const AdminMailSettings: React.FC = () => {
                 Send an immediate test email to verify connection credentials and template styles.
               </p>
               
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recipient Email</label>
+                  {user?.email && testRecipientEmail !== user.email && (
+                    <button
+                      type="button"
+                      onClick={() => setTestRecipientEmail(user.email || '')}
+                      className="text-[10px] font-medium text-cyan-600 dark:text-cyan-400 hover:underline"
+                    >
+                      Use My Email
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={testRecipientEmail}
+                    onChange={(e) => setTestRecipientEmail(e.target.value)}
+                    placeholder={user?.email || "e.g. bart.vanhoorne@vliz.be"}
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-350 dark:border-slate-600 rounded text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500"
+                  />
+                  <Mail size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
+                  Leave blank to use default admin/superadmin address.
+                </span>
+              </div>
+
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Template</label>
