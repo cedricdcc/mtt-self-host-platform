@@ -154,6 +154,11 @@ export class FoliageSystem {
     this.createAbyssalHydrothermalVents();
   }
 
+  public setDesktopMode(enabled: boolean): void {
+    this.sunlitShelfGroup.visible = !enabled;
+    this.twilightCanyonGroup.visible = !enabled;
+  }
+
   /**
    * Builds raised limestone reef ledges & a coral arch in the Sunlit zone (Y: +6.5 to +11.5)
    * along the rear-left and rear-right walls, populated with staghorn corals, brain corals,

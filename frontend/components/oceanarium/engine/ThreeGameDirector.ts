@@ -236,6 +236,7 @@ export class ThreeGameDirector {
       this.detachReticle();
     }
     this.environment.setDesktopMode(mode === 'DESKTOP_MODE');
+    this.foliageSystem.setDesktopMode(mode === 'DESKTOP_MODE');
     this.boidsSystem.setDesktopMode(mode === 'DESKTOP_MODE');
     this.cameraDirector.setMode(mode);
     if (this.callbacks.onModeChanged) {

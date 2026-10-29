@@ -132,6 +132,13 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isDesktopMode) {
         handleSetDesktopMode(false);
+        return;
+      }
+      if (
+        e.target instanceof HTMLElement &&
+        (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)
+      ) {
+        return;
       }
       if ((e.key === 'r' || e.key === 'R') && !isDesktopMode) {
         handleResetView();
@@ -243,7 +250,7 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
         pointerDownRef.current.isDragging = true;
       }
     }
-    if (directorRef.current) {
+    if (directorRef.current && (!pointerDownRef.current || pointerDownRef.current.isDragging)) {
       directorRef.current.handlePointerMove(e.clientX, e.clientY);
     }
   };
@@ -288,6 +295,14 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onPointerLeave={() => {
+          pointerDownRef.current = null;
+          directorRef.current?.handlePointerUp();
+        }}
+        onPointerCancel={() => {
+          pointerDownRef.current = null;
+          directorRef.current?.handlePointerUp();
+        }}
         onWheel={(e) => directorRef.current?.handleWheel(e.deltaY)}
         onContextMenu={(e) => e.preventDefault()}
       />

@@ -480,32 +480,25 @@ export class CartoonFishFactory {
     // If a custom 3D GLB model is configured, spawn via GLB pipeline with procedural rig fallback
     const modelUrl = species.model_url || traits.model_url;
     if (modelUrl) {
-      const placeholder = new THREE.Group();
-      placeholder.name = 'glb_placeholder';
-      this.buildProceduralFallbackMesh(
-        placeholder,
-        { ...species, scale: 1.0, model_url: null },
-        isShiny
-      );
-
-      group.userData = {
-        ...placeholder.userData,
-        speciesId: species.id,
-        bodyType,
-        isShiny,
-        modelUrl,
-        isGLB: true,
-        swimSpeed: 1.0 + Math.random() * 0.4,
-        swimPhase: Math.random() * Math.PI * 2,
-        finWobblePhase: Math.random() * Math.PI * 2
-      };
-
       const glbContainer = new THREE.Group();
       glbContainer.name = `glb_container_${species.id}`;
       group.add(glbContainer);
-      group.userData.glbContainer = glbContainer;
 
       if (this.gltfCache.has(modelUrl)) {
+        group.userData = {
+          speciesId: species.id,
+          bodyType,
+          isShiny,
+          modelUrl,
+          isGLB: true,
+          locomotionType: 'carangiform' as LocomotionType,
+          baseScale: scaleFactor,
+          swimSpeed: 1.0 + Math.random() * 0.4,
+          swimPhase: Math.random() * Math.PI * 2,
+          finWobblePhase: Math.random() * Math.PI * 2,
+          glbContainer
+        };
+
         const glbModel = this.gltfCache.get(modelUrl)!.clone(true);
         glbModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
         if (isShiny) {
@@ -519,6 +512,28 @@ export class CartoonFishFactory {
         }
         glbContainer.add(glbModel);
       } else {
+        const placeholder = new THREE.Group();
+        placeholder.name = 'glb_placeholder';
+        this.buildProceduralFallbackMesh(
+          placeholder,
+          { ...species, scale: 1.0, model_url: null },
+          isShiny
+        );
+
+        group.userData = {
+          ...placeholder.userData,
+          speciesId: species.id,
+          bodyType,
+          isShiny,
+          modelUrl,
+          isGLB: true,
+          baseScale: scaleFactor,
+          swimSpeed: 1.0 + Math.random() * 0.4,
+          swimPhase: Math.random() * Math.PI * 2,
+          finWobblePhase: Math.random() * Math.PI * 2,
+          glbContainer
+        };
+
         placeholder.scale.set(scaleFactor, scaleFactor, scaleFactor);
         glbContainer.add(placeholder);
 

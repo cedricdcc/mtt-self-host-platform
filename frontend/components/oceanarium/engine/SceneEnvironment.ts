@@ -153,7 +153,7 @@ export class SceneEnvironment {
 
     const backdropMat = new THREE.MeshBasicMaterial({
       map: this.backdropTexture,
-      vertexColors: true,
+      vertexColors: !this.backdropTexture,
       transparent: true,
       opacity: 0.92,
       depthWrite: false,
