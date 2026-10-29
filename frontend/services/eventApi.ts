@@ -78,27 +78,7 @@ export const fetchEventStats = async (
   resolution: string = 'smart',
   userOnly: boolean = false
 ): Promise<EventStatsResponse> => {
-  let token = localStorage.getItem('token');
-  if (!token) {
-    const storedUser = localStorage.getItem('marineterm_user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        if (user.token) token = user.token;
-      } catch (e) {
-        // Ignore parse errors
-      }
-    }
-  }
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`/api/events/${eventId}/stats?resolution=${resolution}&userOnly=${userOnly}`, { headers });
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({}));
-    throw new Error(error.error || 'Failed to fetch event stats');
-  }
-  return res.json();
+  return backendApi.get<EventStatsResponse>(`/events/${eventId}/stats?resolution=${resolution}&userOnly=${userOnly}`);
 };
 
 

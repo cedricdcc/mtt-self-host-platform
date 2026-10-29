@@ -42,7 +42,6 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
       .then(setEvent)
       .catch((err) => toast.error(err.message || "Failed to load competition details"))
       .finally(() => setLoading(false));
-    loadStats();
   };
 
   useEffect(() => {

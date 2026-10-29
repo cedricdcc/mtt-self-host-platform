@@ -44,16 +44,9 @@ function settleEventRewards(eventId) {
       return { settled: false, reason: "No profile title configured for this event." };
     }
 
-    let awardedCount = 0;
     const existing = db.prepare("SELECT id FROM user_rewards WHERE user_id = ? AND reward_id = ?").get(topIndividual.user_id, reward.id);
-    if (!existing) {
-      const urId = `ur_${crypto.randomUUID()}`;
-      db.prepare(`
-        INSERT INTO user_rewards (id, user_id, reward_id, is_equipped)
-        VALUES (?, ?, ?, 1)
-      `).run(urId, topIndividual.user_id, reward.id);
-      awardedCount++;
-    }
+    const awardedId = awardRewardToUser(topIndividual.user_id, reward.id);
+    const awardedCount = existing ? 0 : (awardedId ? 1 : 0);
 
     const winnerUser = db.prepare("SELECT username, extra FROM users WHERE id = ?").get(topIndividual.user_id);
     let displayName = winnerUser ? winnerUser.username : "Individual Winner";
