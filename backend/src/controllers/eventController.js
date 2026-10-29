@@ -49,11 +49,11 @@ async function getEvent(req, res) {
 
 async function createEvent(req, res) {
   try {
-    const { title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle } = req.body;
+    const { title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle, hasTeams } = req.body;
     if (!title || !startDate || !endDate) {
       return res.status(400).json({ error: "Title, start date, and end date are required." });
     }
-    const event = eventService.createEvent({ title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle });
+    const event = eventService.createEvent({ title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle, hasTeams });
     res.status(201).json(event);
   } catch (err) {
     res.status(500).json({ error: err.message });
