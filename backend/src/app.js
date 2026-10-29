@@ -127,6 +127,7 @@ app.use("/", vocabularyRequestsRoutes);
 app.use("/", mailRoutes);
 app.use("/", achievementsRoutes);
 app.use("/", eventRoutes);
+app.use("/api", eventRoutes);
 app.use("/api/ecosystem", ecosystemRoutes);
 app.use("/ecosystem", ecosystemRoutes);
 app.use("/api/gacha", gachaRoutes);
