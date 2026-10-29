@@ -12,7 +12,7 @@ function runTest() {
 
   let user = db.prepare("SELECT id FROM users LIMIT 1").get();
   if (!user) {
-    db.prepare("INSERT INTO users (username, email) VALUES ('solo_champ', 'champ@example.com')").run();
+    db.prepare("INSERT INTO users (username) VALUES ('solo_champ')").run();
     user = db.prepare("SELECT id FROM users WHERE username = 'solo_champ'").get();
   }
 

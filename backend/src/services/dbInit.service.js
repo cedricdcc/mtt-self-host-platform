@@ -189,6 +189,13 @@ function initializeDatabase() {
   } catch (err) {
     console.error('[DB Init] Error syncing admin flags:', err);
   }
+
+  try {
+    const { ensureEventsTable } = require("./eventService");
+    ensureEventsTable();
+  } catch (err) {
+    console.error('[DB Init] Error ensuring events table:', err.message);
+  }
   
   seedAchievements(db);
   retroactivelyAwardAchievements(db);

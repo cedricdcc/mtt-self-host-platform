@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS events (
     target_language TEXT DEFAULT 'all',
     target_count INTEGER DEFAULT 100,
     status TEXT NOT NULL DEFAULT 'UPCOMING' CHECK(status IN ('UPCOMING', 'ACTIVE', 'ENDED', 'CANCELLED')),
+    has_teams INTEGER NOT NULL DEFAULT 1 CHECK(has_teams IN (0, 1)),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -39,7 +40,7 @@ WHERE is_active = 1;
 CREATE TABLE IF NOT EXISTS event_contributions (
     id TEXT PRIMARY KEY,
     event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    team_id TEXT NOT NULL REFERENCES event_teams(id) ON DELETE CASCADE,
+    team_id TEXT REFERENCES event_teams(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     translation_id INTEGER REFERENCES translations(id) ON DELETE SET NULL,
     action_type TEXT NOT NULL CHECK(action_type IN ('TRANSLATION_CREATED', 'TRANSLATION_APPROVED', 'VOTE_CAST')),

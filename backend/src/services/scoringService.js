@@ -1,7 +1,11 @@
 const { getDatabase } = require("../db/database");
 const crypto = require("crypto");
+const { ensureEventsTable } = require("./eventService");
 
 function recordEventContribution(userId, translationId, actionType, category = 'ALL') {
+  try {
+    ensureEventsTable();
+  } catch (e) {}
   const db = getDatabase();
 
   let termSourceId = null;
@@ -44,10 +48,7 @@ function recordEventContribution(userId, translationId, actionType, category = '
   const points = pointsMap[actionType] || 1;
 
   for (const ev of activeEvents) {
-    if (ev.has_teams === 1 && !ev.team_id) {
-      continue;
-    }
-    const assignedTeamId = ev.has_teams === 1 ? ev.team_id : null;
+    const assignedTeamId = ev.has_teams === 1 ? (ev.team_id || null) : null;
     const id = `cnt_${crypto.randomUUID()}`;
     stmt.run(id, ev.event_id, assignedTeamId, userId, translationId || null, actionType, points);
     inserted.push({ id, event_id: ev.event_id, team_id: assignedTeamId, points });

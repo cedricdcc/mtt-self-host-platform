@@ -13,13 +13,13 @@ async function runTest() {
   // Ensure test users exist
   let user1 = db.prepare("SELECT id FROM users WHERE username = 'test_stats_user1'").get();
   if (!user1) {
-    db.prepare("INSERT INTO users (username, email) VALUES ('test_stats_user1', 'stats1@example.com')").run();
+    db.prepare("INSERT INTO users (username) VALUES ('test_stats_user1')").run();
     user1 = db.prepare("SELECT id FROM users WHERE username = 'test_stats_user1'").get();
   }
 
   let user2 = db.prepare("SELECT id FROM users WHERE username = 'test_stats_user2'").get();
   if (!user2) {
-    db.prepare("INSERT INTO users (username, email) VALUES ('test_stats_user2', 'stats2@example.com')").run();
+    db.prepare("INSERT INTO users (username) VALUES ('test_stats_user2')").run();
     user2 = db.prepare("SELECT id FROM users WHERE username = 'test_stats_user2'").get();
   }
 

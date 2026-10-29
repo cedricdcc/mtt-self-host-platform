@@ -150,6 +150,7 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
   const isHighestMode = target === 0;
   const pct = isHighestMode ? 100 : Math.min(100, Math.round((current / target) * 100));
   const isUserMember = !!(event?.user_team_id || event?.teams?.some(t => t.is_user_member));
+  const isIndividualMode = event.has_teams === 0 || (!event.teams || event.teams.length === 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -257,10 +258,10 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
                 </h3>
                 <p className="text-xs text-slate-300 mt-1 max-w-xl">
                   {event.status === 'ENDED'
-                    ? (event.has_teams === 0
+                    ? (isIndividualMode
                         ? "🏆 Competition concluded! The 1st place contributor has received this exclusive title on their profile."
                         : "🏆 Competition concluded! Members of the 1st place team with active translation contributions have received this exclusive title on their profile.")
-                    : (event.has_teams === 0
+                    : (isIndividualMode
                         ? "The 1st place contributor will unlock this exclusive title on their profile."
                         : "Members of the 1st place team with active translation contributions will unlock this exclusive title on their profile.")
                   }
@@ -268,7 +269,7 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
               </div>
             </div>
             {event.status === 'ENDED' && (
-              event.has_teams === 0 ? (
+              isIndividualMode ? (
                 eventStats?.individualLeaderboard && eventStats.individualLeaderboard.length > 0 && (eventStats.individualLeaderboard[0].totalPoints || 0) > 0 && (
                   <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 self-start sm:self-center">
                     <span>🥇 Winner: {eventStats.individualLeaderboard[0].name} ({eventStats.individualLeaderboard[0].totalPoints} pts)</span>
@@ -394,7 +395,7 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
       </div>
 
       {/* Leaderboard Podium */}
-      {event.has_teams === 0 ? (
+      {isIndividualMode ? (
         <EventIndividualLeaderboard
           contributors={eventStats?.individualLeaderboard || []}
           currentUserId={user?.id}

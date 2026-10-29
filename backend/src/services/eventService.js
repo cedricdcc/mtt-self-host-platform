@@ -28,6 +28,16 @@ function ensureEventsTable() {
     try { db.prepare("ALTER TABLE events ADD COLUMN has_teams INTEGER NOT NULL DEFAULT 1 CHECK(has_teams IN (0, 1))").run(); } catch(e){}
   }
 
+  // Align events with 0 teams to has_teams = 0
+  try {
+    db.prepare(`
+      UPDATE events
+      SET has_teams = 0
+      WHERE NOT EXISTS (SELECT 1 FROM event_teams t WHERE t.event_id = events.id)
+        AND has_teams = 1
+    `).run();
+  } catch (e) {}
+
   // Ensure event_contributions.team_id allows NULL
   const contribInfo = db.prepare("PRAGMA table_info(event_contributions)").all();
   const teamIdCol = contribInfo.find(c => c.name === "team_id");
@@ -49,6 +59,53 @@ function ensureEventsTable() {
       ALTER TABLE event_contributions_new RENAME TO event_contributions;
       PRAGMA foreign_keys=on;
     `);
+  }
+
+  try {
+    syncActiveEventContributions();
+  } catch (e) {}
+}
+
+function syncActiveEventContributions(specificEventId = null) {
+  const db = getDatabase();
+  const eventsQuery = specificEventId
+    ? db.prepare("SELECT * FROM events WHERE id = ?").all(specificEventId)
+    : db.prepare("SELECT * FROM events WHERE status = 'ACTIVE'").all();
+
+  const insertStmt = db.prepare(`
+    INSERT INTO event_contributions (id, event_id, team_id, user_id, translation_id, action_type, points, created_at)
+    VALUES (?, ?, ?, ?, ?, 'TRANSLATION_CREATED', 5, ?)
+  `);
+
+  for (const ev of eventsQuery) {
+    const missing = db.prepare(`
+      SELECT tr.id as translation_id, tr.created_by_id as user_id, tr.created_at
+      FROM translations tr
+      JOIN term_fields tf ON tr.term_field_id = tf.id
+      JOIN terms t ON tf.term_id = t.id
+      WHERE datetime(tr.created_at) >= datetime(?) AND datetime(tr.created_at) <= datetime(?)
+        AND (? IS NULL OR t.source_id = ?)
+        AND (? = 'all' OR tr.language = ?)
+        AND tr.id NOT IN (
+          SELECT translation_id FROM event_contributions 
+          WHERE event_id = ? AND translation_id IS NOT NULL AND action_type = 'TRANSLATION_CREATED'
+        )
+    `).all(
+      ev.start_date,
+      ev.end_date,
+      ev.source_id,
+      ev.source_id,
+      ev.target_language || 'all',
+      ev.target_language || 'all',
+      ev.id
+    );
+
+    for (const m of missing) {
+      if (!m.user_id) continue;
+      const teamMem = db.prepare("SELECT team_id FROM event_memberships WHERE event_id = ? AND user_id = ? AND is_active = 1 LIMIT 1").get(ev.id, m.user_id);
+      const teamId = ev.has_teams === 1 && teamMem ? teamMem.team_id : null;
+      insertStmt.run(`cnt_${crypto.randomUUID()}`, ev.id, teamId, m.user_id, m.translation_id, m.created_at);
+    }
   }
 }
 
@@ -280,6 +337,10 @@ function getEventStats(eventId, userId = null, requestedResolution = 'smart', us
 
   const event = db.prepare("SELECT * FROM events WHERE id = ?").get(eventId);
   if (!event) throw new Error("Event not found");
+
+  try {
+    syncActiveEventContributions(eventId);
+  } catch (e) {}
 
   const isUserOnly = userOnly === true || userOnly === 'true';
   const filterUser = (isUserOnly && userId) ? userId : null;

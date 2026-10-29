@@ -10,7 +10,7 @@ function runTest() {
   // Ensure test user exists
   let user = db.prepare("SELECT id FROM users LIMIT 1").get();
   if (!user) {
-    db.prepare("INSERT INTO users (username, email, role) VALUES ('test_scorer', 'scorer@example.com', 'user')").run();
+    db.prepare("INSERT INTO users (username) VALUES ('test_scorer')").run();
     user = db.prepare("SELECT id FROM users WHERE username = 'test_scorer'").get();
   }
 

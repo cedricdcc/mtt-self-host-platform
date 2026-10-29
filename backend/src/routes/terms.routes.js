@@ -1366,6 +1366,11 @@ router.put("/terms/:id", requireAuth, requireBrowserContext, writeLimiter, async
                   translatorUserId,
                   rewardResult,
                 });
+                try {
+                  recordEventContribution(userId, existingTranslation.id, 'TRANSLATION_APPROVED');
+                } catch (e) {
+                  console.log("Could not record event contribution on approval:", e.message);
+                }
               }
             }
 
