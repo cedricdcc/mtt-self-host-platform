@@ -192,6 +192,40 @@ export class ThreeGameDirector {
     this.cameraDirector.resetToIsometric(duration);
   }
 
+  public snapToFrontView(): void {
+    this.detachReticle();
+    this.cameraDirector.snapToFrontView(0.9);
+  }
+
+  public handleWheel(deltaY: number): void {
+    this.cameraDirector.onWheel(deltaY);
+  }
+
+  public selectFishById(userFishId: number): UserFish | null {
+    const boid = this.boidsSystem.getAllFishes().find((b) => b.id === userFishId);
+    if (!boid || !boid.mesh) return null;
+    const rawFish =
+      (boid.mesh.userData?.rawFish as UserFish) ||
+      this.rawFishes.find((f) => f.user_fish_id === userFishId) ||
+      null;
+    if (!rawFish) return null;
+
+    this.attachReticle(boid.mesh);
+    this.cameraDirector.inspectFish(boid.mesh);
+    this.callbacks.onFishSelected?.(rawFish);
+    return rawFish;
+  }
+
+  public boopFish(userFishId: number): boolean {
+    const boid = this.boidsSystem.getAllFishes().find((b) => b.id === userFishId);
+    if (!boid) return false;
+    const triggered = this.boidsSystem.triggerReaction(userFishId);
+    if (triggered && boid.mesh) {
+      this.bubbleSystem.emitFishMouthPuff(boid.mesh.position, 6);
+    }
+    return triggered;
+  }
+
   public getMode(): OceanariumMode {
     return this.mode;
   }
@@ -283,9 +317,9 @@ export class ThreeGameDirector {
   }
 
   /**
-   * Handle pointer down for fish selection and camera orbit
+   * Handle pointer down for fish selection, boop reaction, and camera orbit/pan
    */
-  public handlePointerDown(clientX: number, clientY: number, rect: DOMRect): boolean {
+  public handlePointerDown(clientX: number, clientY: number, rect: DOMRect, isPan: boolean = false): boolean {
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -304,9 +338,13 @@ export class ThreeGameDirector {
       }
 
       if (hitObj && hitObj.userData.rawFish) {
+        const wasAlreadySelected = this.reticleTarget === hitObj;
         const rawFish = hitObj.userData.rawFish as UserFish;
         this.attachReticle(hitObj);
         this.cameraDirector.inspectFish(hitObj);
+        if (wasAlreadySelected) {
+          this.boopFish(rawFish.user_fish_id);
+        }
         if (this.callbacks.onFishSelected) {
           this.callbacks.onFishSelected(rawFish);
         }
@@ -314,8 +352,8 @@ export class ThreeGameDirector {
       }
     }
 
-    // Otherwise initiate camera drag in standard view
-    this.cameraDirector.onPointerDown(clientX, clientY);
+    // Otherwise initiate camera drag (orbit or pan) in standard/inspecting view
+    this.cameraDirector.onPointerDown(clientX, clientY, isPan);
     return false;
   }
 

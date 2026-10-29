@@ -10,7 +10,7 @@ export const ISOMETRIC_PHI = Math.PI / 3.2; // ~56 degrees elevation
 export const ISOMETRIC_CENTER = new THREE.Vector3(0, 0, 0);
 
 /**
- * Manages camera states, smooth lerping, depth snaps, and 3rd-person cinematic submarine chase.
+ * Manages camera states, smooth lerping, depth snaps, 360° orbit/zoom/pan, and 3rd-person cinematic submarine chase.
  */
 export class CameraDirector {
   public camera: THREE.PerspectiveCamera;
@@ -21,18 +21,21 @@ export class CameraDirector {
   private targetLookAt: THREE.Vector3 = ISOMETRIC_CENTER.clone();
   private currentLookAt: THREE.Vector3 = ISOMETRIC_CENTER.clone();
 
-  // Mouse orbit dragging state
+  // Mouse orbit & pan dragging state
   public isDragging: boolean = false;
+  public isPanning: boolean = false;
   private previousMousePosition = { x: 0, y: 0 };
   private spherical: THREE.Spherical = new THREE.Spherical(ISOMETRIC_RADIUS, ISOMETRIC_PHI, ISOMETRIC_THETA);
   private centerOffset: THREE.Vector3 = ISOMETRIC_CENTER.clone();
 
-  // Smooth View Reset State
+  // Smooth View Reset / Preset Transition State
   private isResetting: boolean = false;
   private resetProgress: number = 0;
   private resetDuration: number = 1.0;
   private resetStartSpherical: THREE.Spherical = new THREE.Spherical();
   private resetStartCenter: THREE.Vector3 = new THREE.Vector3();
+  private resetTargetSpherical: THREE.Spherical = new THREE.Spherical(ISOMETRIC_RADIUS, ISOMETRIC_PHI, ISOMETRIC_THETA);
+  private resetTargetCenter: THREE.Vector3 = ISOMETRIC_CENTER.clone();
 
   // Focus target for inspection
   private inspectingTarget: THREE.Object3D | null = null;
@@ -48,6 +51,7 @@ export class CameraDirector {
     this.mode = 'STANDARD_VIEW';
     this.inspectingTarget = null;
     this.isDragging = false;
+    this.isPanning = false;
     this.isResetting = true;
     this.resetProgress = 0;
     this.resetDuration = Math.max(0.1, duration);
@@ -61,6 +65,32 @@ export class CameraDirector {
 
     this.resetStartSpherical.copy(this.spherical);
     this.resetStartCenter.copy(this.centerOffset);
+    this.resetTargetSpherical.set(ISOMETRIC_RADIUS, ISOMETRIC_PHI, ISOMETRIC_THETA);
+    this.resetTargetCenter.copy(ISOMETRIC_CENTER);
+  }
+
+  /**
+   * Smoothly transition camera to the direct Front View preset
+   */
+  public snapToFrontView(duration = 0.9): void {
+    this.mode = 'STANDARD_VIEW';
+    this.inspectingTarget = null;
+    this.isDragging = false;
+    this.isPanning = false;
+    this.isResetting = true;
+    this.resetProgress = 0;
+    this.resetDuration = Math.max(0.1, duration);
+
+    const relPos = new THREE.Vector3().subVectors(this.camera.position, this.currentLookAt);
+    if (relPos.length() > 0.001) {
+      this.spherical.setFromVector3(relPos);
+    }
+    this.centerOffset.copy(this.currentLookAt);
+
+    this.resetStartSpherical.copy(this.spherical);
+    this.resetStartCenter.copy(this.centerOffset);
+    this.resetTargetSpherical.set(48, Math.PI / 2, 0);
+    this.resetTargetCenter.set(0, 0, 0);
   }
 
   public setMode(mode: CameraMode): void {
@@ -83,6 +113,10 @@ export class CameraDirector {
    * Snap camera view to depth zone (sunlit, twilight, abyssal)
    */
   public snapToDepth(zone: 'sunlit' | 'twilight' | 'abyssal'): void {
+    this.mode = 'STANDARD_VIEW';
+    this.inspectingTarget = null;
+    this.isResetting = false;
+
     if (zone === 'sunlit') {
       this.centerOffset.set(0, 16, 0);
       this.spherical.radius = 32;
@@ -99,26 +133,44 @@ export class CameraDirector {
   }
 
   /**
-   * Focus camera closely on a specific fish
+   * Focus camera closely on a specific fish while allowing 360° macro orbit and zoom
    */
   public inspectFish(fishMesh: THREE.Object3D): void {
+    if (this.mode !== 'INSPECTING_FISH') {
+      this.spherical.set(12.0, Math.PI / 2.2, Math.PI / 6);
+    }
     this.mode = 'INSPECTING_FISH';
     this.inspectingTarget = fishMesh;
+    this.isResetting = false;
   }
 
   /**
-   * Handle mouse drag start (locked in standard view)
+   * Handle mouse drag start (orbit or pan)
    */
-  public onPointerDown(clientX: number, clientY: number): void {
-    // Orbit drag disabled in normal mode to keep the diorama cube locked in its pristine 2.5D isometric view
-    this.isDragging = false;
+  public onPointerDown(clientX: number, clientY: number, isPan: boolean = false): void {
+    this.isDragging = true;
+    this.isPanning = isPan;
+    this.isResetting = false;
+    this.previousMousePosition = { x: clientX, y: clientY };
   }
 
   /**
-   * Handle mouse drag movement
+   * Handle mouse drag movement (360° orbit or pan)
    */
   public onPointerMove(clientX: number, clientY: number): void {
     if (!this.isDragging) return;
+
+    const dx = clientX - this.previousMousePosition.x;
+    const dy = clientY - this.previousMousePosition.y;
+    this.previousMousePosition = { x: clientX, y: clientY };
+
+    if (this.isPanning && this.mode !== 'INSPECTING_FISH') {
+      this.centerOffset.x = THREE.MathUtils.clamp(this.centerOffset.x - dx * 0.06, -16, 16);
+      this.centerOffset.y = THREE.MathUtils.clamp(this.centerOffset.y + dy * 0.06, -18, 18);
+    } else {
+      this.spherical.theta -= dx * 0.007;
+      this.spherical.phi = THREE.MathUtils.clamp(this.spherical.phi - dy * 0.007, 0.2, Math.PI - 0.2);
+    }
   }
 
   /**
@@ -126,6 +178,19 @@ export class CameraDirector {
    */
   public onPointerUp(): void {
     this.isDragging = false;
+    this.isPanning = false;
+  }
+
+  /**
+   * Handle mouse wheel zoom in standard or fish-inspection mode
+   */
+  public onWheel(deltaY: number): void {
+    this.isResetting = false;
+    this.spherical.radius = THREE.MathUtils.clamp(
+      this.spherical.radius + deltaY * 0.025,
+      this.mode === 'INSPECTING_FISH' ? 5.5 : 12.0,
+      this.mode === 'INSPECTING_FISH' ? 24.0 : 82.0
+    );
   }
 
   /**
@@ -151,10 +216,22 @@ export class CameraDirector {
       // Cubic ease out: 1 - (1 - t)^3
       const easeOut = 1 - Math.pow(1 - t, 3);
 
-      this.spherical.radius = THREE.MathUtils.lerp(this.resetStartSpherical.radius, ISOMETRIC_RADIUS, easeOut);
-      this.spherical.phi = THREE.MathUtils.lerp(this.resetStartSpherical.phi, ISOMETRIC_PHI, easeOut);
-      this.spherical.theta = THREE.MathUtils.lerp(this.resetStartSpherical.theta, ISOMETRIC_THETA, easeOut);
-      this.centerOffset.lerpVectors(this.resetStartCenter, ISOMETRIC_CENTER, easeOut);
+      this.spherical.radius = THREE.MathUtils.lerp(
+        this.resetStartSpherical.radius,
+        this.resetTargetSpherical.radius,
+        easeOut
+      );
+      this.spherical.phi = THREE.MathUtils.lerp(
+        this.resetStartSpherical.phi,
+        this.resetTargetSpherical.phi,
+        easeOut
+      );
+      this.spherical.theta = THREE.MathUtils.lerp(
+        this.resetStartSpherical.theta,
+        this.resetTargetSpherical.theta,
+        easeOut
+      );
+      this.centerOffset.lerpVectors(this.resetStartCenter, this.resetTargetCenter, easeOut);
 
       if (t >= 1.0) {
         this.isResetting = false;
@@ -202,13 +279,14 @@ export class CameraDirector {
   }
 
   /**
-   * Smoothly frame a selected fish
+   * Smoothly frame and orbit around a selected swimming fish
    */
   private updateInspectingCamera(delta: number): void {
     if (!this.inspectingTarget) return;
 
     const fishPos = this.inspectingTarget.position;
-    const desiredPos = fishPos.clone().add(new THREE.Vector3(0, 1.2, 5.5));
+    const offset = new THREE.Vector3().setFromSpherical(this.spherical);
+    const desiredPos = fishPos.clone().add(offset);
 
     this.camera.position.lerp(desiredPos, 0.08);
     this.currentLookAt.lerp(fishPos, 0.1);
