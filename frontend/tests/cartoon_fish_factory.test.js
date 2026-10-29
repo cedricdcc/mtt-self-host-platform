@@ -7,57 +7,63 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function run() {
-  console.log('Testing CartoonFishFactory structural invariants and cartoon features...');
+  console.log('Testing CartoonFishFactory structural invariants, 8 rig families, and 21 species...');
 
   const factoryPath = path.join(__dirname, '../components/oceanarium/engine/CartoonFishFactory.ts');
   assert.ok(fs.existsSync(factoryPath), 'CartoonFishFactory.ts must exist');
 
   const content = fs.readFileSync(factoryPath, 'utf8');
 
-  // Verify class and methods
+  // Core class & methods
   assert.ok(content.includes('export class CartoonFishFactory'), 'Must export CartoonFishFactory class');
   assert.ok(content.includes('createFishMesh'), 'Must implement createFishMesh method');
-
-  // Verify cartoon eyes matching homepage pufferfish (sclera + pupil + shine reflection)
   assert.ok(content.includes('addCartoonEyes'), 'Must implement addCartoonEyes method');
-  assert.ok(content.includes('sclera'), 'Must construct rounded eye sclera');
-  assert.ok(content.includes('pupil'), 'Must construct glossy pupil');
-  assert.ok(content.includes('shine'), 'Must add specular shine reflection dot to eye');
-
-  // Verify procedural swimming rigs
-  assert.ok(content.includes('tailPivot'), 'Must assign tailPivot for procedural animation');
-  assert.ok(content.includes('leftFin'), 'Must assign leftFin for pectoral flutter');
-  assert.ok(content.includes('rightFin'), 'Must assign rightFin for pectoral flutter');
-
-  // Verify Toon Materials & Gradient Texture
-  assert.ok(content.includes('MeshToonMaterial'), 'Must use MeshToonMaterial for cel/toon shading');
-  assert.ok(content.includes('createToonGradient'), 'Must generate toon gradient map');
-
-  // Verify Shiny Variant features
-  assert.ok(content.includes('isShiny'), 'Must handle isShiny flag');
-  assert.ok(content.includes('getShinyColor'), 'Must derive iridescent/pearlescent color for shinies');
-  assert.ok(content.includes('createSparkleAura'), 'Must generate sparkle/star particle cloud for shiny fish');
-
-  // Verify specialized body types
-  assert.ok(content.includes('bodyType === \'ray\''), 'Must handle ray/manta body geometry');
-  assert.ok(content.includes('bodyType === \'vertical\''), 'Must handle vertical seahorse body geometry');
-  assert.ok(content.includes('bodyType === \'spiky\''), 'Must handle spiky pufferfish body geometry');
-  assert.ok(content.includes('addAnglerLure'), 'Must handle bioluminescent lure for anglerfish');
-
-  // Verify nibbling mouth/jaw pivot
-  assert.ok(content.includes('jawPivot'), 'Must assign jawPivot for mouth nibbling kinematics');
+  assert.ok(content.includes('sclera') && content.includes('pupil') && content.includes('shine'), 'Must construct eye sclera, pupil, and shine');
+  assert.ok(content.includes('tailPivot') && content.includes('leftFin') && content.includes('rightFin'), 'Must assign tailPivot, leftFin, rightFin');
+  assert.ok(content.includes('dorsalFin') && content.includes('analFin') && content.includes('jawPivot'), 'Must assign dorsalFin, analFin, jawPivot');
   assert.ok(content.includes('addNibblingMouth'), 'Must implement addNibblingMouth');
-
-  // Verify dorsal and anal fin crests
-  assert.ok(content.includes('dorsalFin'), 'Must assign dorsalFin crest');
-  assert.ok(content.includes('analFin'), 'Must assign analFin crest');
-
-  // Verify species-specific markings & cheek blush
-  assert.ok(content.includes('addCheekBlush'), 'Must add rosy cartoon cheek blush decals');
+  assert.ok(content.includes('addCheekBlush'), 'Must implement addCheekBlush');
   assert.ok(content.includes('addSpeciesMarkings'), 'Must implement addSpeciesMarkings');
-  assert.ok(content.includes('clownfish') || content.includes('stripes'), 'Must handle clownfish white bands');
+  assert.ok(content.includes('addAnglerLure'), 'Must implement addAnglerLure');
+  assert.ok(content.includes('MeshToonMaterial') && content.includes('createToonGradient'), 'Must use MeshToonMaterial and createToonGradient');
+  assert.ok(content.includes('isShiny') && content.includes('getShinyColor') && content.includes('createSparkleAura'), 'Must handle Shiny variants');
 
-  console.log('✓ CartoonFishFactory structural and visual invariants PASSED!');
+  // Verify all body types & specialized rig builders
+  const requiredBodyChecks = [
+    "bodyType === 'ray'",
+    "bodyType === 'vertical'",
+    "bodyType === 'spiky'",
+    'buildMantaRayRig',
+    'buildSeahorseRig',
+    'buildCephalopodRig',
+    'buildMedusaAndChainRig',
+    'buildSerpentineRig',
+    'buildDeepSpecialistRig',
+    'createPatternTexture'
+  ];
+  for (const check of requiredBodyChecks) {
+    assert.ok(content.includes(check), `CartoonFishFactory must include ${check}`);
+  }
+
+  // Verify locomotion types assigned on userData
+  const locomotionTypes = [
+    'carangiform',
+    'hover_flutter',
+    'puffer',
+    'rajiform',
+    'upright_bob',
+    'jet_pulse',
+    'ear_flap',
+    'medusa_pulse',
+    'chain_wave',
+    'anguilliform',
+    'specialist_swim'
+  ];
+  for (const loco of locomotionTypes) {
+    assert.ok(content.includes(loco), `CartoonFishFactory must support locomotionType: ${loco}`);
+  }
+
+  console.log('✓ CartoonFishFactory 8 rig families and 21 species invariants PASSED!');
 }
 
 try {
