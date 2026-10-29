@@ -7,14 +7,18 @@ export const CUBE_SIZE = 40.0;
 export const HALF_CUBE = CUBE_SIZE / 2.0; // 20.0
 
 /**
- * Manages 3D atmospheric underwater environment, lighting, depth fog, ambient bubbles,
- * the 1:1:1 diorama cube (in standard view), and the boundless procedural world
- * (in desktop mode) featuring an infinite seabed, sky canopy, drifting clouds, and radiant sun.
+ * Manages 3D atmospheric underwater environment, stratified 3-tier vertical lighting,
+ * bathymetric gradient backdrop, animated volumetric sun god-rays, sculpted multi-zone seabed,
+ * depth fog, ambient bubbles, the 1:1:1 diorama cube (in standard view), and the boundless
+ * procedural world (in desktop mode).
  */
 export class SceneEnvironment {
   private scene: THREE.Scene;
   private ambientLight: THREE.AmbientLight;
   public sunLight: THREE.DirectionalLight;
+  public sunlitLight: THREE.PointLight;
+  public twilightLight: THREE.PointLight;
+  public abyssalGlowLight: THREE.PointLight;
   private depthFog: THREE.FogExp2;
   private bubbleParticles: THREE.Points;
   private bubblePositions: Float32Array;
@@ -23,11 +27,15 @@ export class SceneEnvironment {
 
   // 1:1:1 True Cube Vivarium Components (Standard View)
   public vivariumFrame: THREE.LineSegments | null = null;
+  public bathymetricBackdrop: THREE.Mesh | null = null;
+  public godRaysGroup: THREE.Group | null = null;
   public sandFloor: THREE.Mesh | null = null;
+  public abyssalBaserock: THREE.Group | null = null;
   public waterSurface: THREE.Mesh | null = null;
   public dioramaPedestal: THREE.Mesh | null = null;
   public depthTicks: THREE.Group | null = null;
   public glassPanels: THREE.Group | null = null;
+  private backdropTexture: THREE.CanvasTexture | null = null;
 
   // Desktop Mode Infinite Procedural World Components
   public isDesktopMode: boolean = false;
@@ -45,7 +53,7 @@ export class SceneEnvironment {
     this.scene.fog = this.depthFog;
 
     // 2. Ambient Lighting (Luminous Tropical Azure)
-    this.ambientLight = new THREE.AmbientLight(0x38bdf8, 1.4);
+    this.ambientLight = new THREE.AmbientLight(0x38bdf8, 1.35);
     this.scene.add(this.ambientLight);
 
     // 3. Overhead Radiant Sun Light Source
@@ -58,7 +66,20 @@ export class SceneEnvironment {
     rimLight.position.set(-20, -15, -15);
     this.scene.add(rimLight);
 
-    // 5. 1:1:1 True Cube Vivarium Framing & Diorama Pedestal (40w x 40h x 40d)
+    // 4b. Stratified 3-Tier Biome Lighting (Sunlit -> Twilight -> Abyssal Trench)
+    this.sunlitLight = new THREE.PointLight(0x7dd3fc, 1.8, 38);
+    this.sunlitLight.position.set(0, 14, 4);
+    this.scene.add(this.sunlitLight);
+
+    this.twilightLight = new THREE.PointLight(0x3b82f6, 1.15, 34);
+    this.twilightLight.position.set(0, 0, -2);
+    this.scene.add(this.twilightLight);
+
+    this.abyssalGlowLight = new THREE.PointLight(0x22d3ee, 2.2, 30);
+    this.abyssalGlowLight.position.set(0, -16, -3);
+    this.scene.add(this.abyssalGlowLight);
+
+    // 5. 1:1:1 True Cube Vivarium Framing, Bathymetric Backdrop, God-Rays & Sculpted Seabed
     this.initVivariumFrame();
 
     // 6. Desktop Mode Infinite Procedural World (Terrain, Sky, Clouds & Sun)
@@ -73,7 +94,8 @@ export class SceneEnvironment {
   }
 
   /**
-   * Initializes 1:1:1 Symmetrical Vivarium Glass Cube (40, 40, 40)
+   * Initializes 1:1:1 Symmetrical Vivarium Glass Cube (40, 40, 40),
+   * Bathymetric Gradient Backdrop, Volumetric God-Rays, and Sculpted Multi-Zone Seabed
    */
   public initVivariumFrame(): void {
     // 1. Glowing Cyan Wireframe Edges (40 x 40 x 40)
@@ -88,6 +110,92 @@ export class SceneEnvironment {
     this.vivariumFrame = new THREE.LineSegments(edgesGeo, edgesMat);
     this.scene.add(this.vivariumFrame);
 
+    // 1b. Bathymetric Vertical Gradient Backdrop Plane (#0284c7 Sunlit -> #1e3a8a Twilight -> #070b14 Abyssal)
+    const backdropGeo = new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE, 1, 24);
+    const backdropPos = backdropGeo.attributes.position;
+    const backdropColors = new Float32Array(backdropPos.count * 3);
+    const sunlitColor = new THREE.Color('#0284c7');
+    const twilightColor = new THREE.Color('#1e3a8a');
+    const abyssalColor = new THREE.Color('#070b14');
+    const tempColor = new THREE.Color();
+
+    for (let i = 0; i < backdropPos.count; i++) {
+      const vy = backdropPos.getY(i); // [-20, +20]
+      const normalizedY = (vy + HALF_CUBE) / CUBE_SIZE; // 0 (bottom) to 1 (top)
+      if (normalizedY >= 0.5) {
+        const t = (normalizedY - 0.5) * 2.0;
+        tempColor.copy(twilightColor).lerp(sunlitColor, t);
+      } else {
+        const t = normalizedY * 2.0;
+        tempColor.copy(abyssalColor).lerp(twilightColor, t);
+      }
+      backdropColors[i * 3] = tempColor.r;
+      backdropColors[i * 3 + 1] = tempColor.g;
+      backdropColors[i * 3 + 2] = tempColor.b;
+    }
+    backdropGeo.setAttribute('color', new THREE.BufferAttribute(backdropColors, 3));
+
+    const backdropCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    if (backdropCanvas) {
+      backdropCanvas.width = 64;
+      backdropCanvas.height = 512;
+      const ctx = backdropCanvas.getContext('2d');
+      if (ctx) {
+        const grad = ctx.createLinearGradient(0, 0, 0, 512);
+        grad.addColorStop(0.0, '#0284c7'); // Sunlit zone (Y: +6 to +20)
+        grad.addColorStop(0.5, '#1e3a8a'); // Twilight zone (Y: -6 to +6)
+        grad.addColorStop(1.0, '#070b14'); // Abyssal trench (Y: -20 to -6)
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 512);
+      }
+      this.backdropTexture = new THREE.CanvasTexture(backdropCanvas);
+    }
+
+    const backdropMat = new THREE.MeshBasicMaterial({
+      map: this.backdropTexture,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    });
+    this.bathymetricBackdrop = new THREE.Mesh(backdropGeo, backdropMat);
+    this.bathymetricBackdrop.position.set(0, 0, -HALF_CUBE - 0.15);
+    this.scene.add(this.bathymetricBackdrop);
+
+    // 1c. Volumetric Sun God-Rays Group (5 angled translucent shafts descending Y = +19 down to Y = +5)
+    this.godRaysGroup = new THREE.Group();
+    const rayConfigs = [
+      { x: -11.5, y: 12.0, z: -6.0, rotZ: -0.22, rotX: 0.12, opacity: 0.14, phase: 0.0 },
+      { x: -5.0, y: 12.2, z: -2.5, rotZ: -0.18, rotX: 0.08, opacity: 0.17, phase: 1.3 },
+      { x: 1.5, y: 12.0, z: -5.0, rotZ: -0.15, rotX: 0.1, opacity: 0.19, phase: 2.5 },
+      { x: 7.5, y: 12.1, z: -1.5, rotZ: -0.2, rotX: 0.07, opacity: 0.15, phase: 3.8 },
+      { x: 13.0, y: 11.8, z: -6.5, rotZ: -0.24, rotX: 0.11, opacity: 0.13, phase: 5.1 }
+    ];
+
+    rayConfigs.forEach((cfg) => {
+      const rayGeo = new THREE.CylinderGeometry(0.8, 3.8, 16, 12, 1, true);
+      const rayMat = new THREE.MeshBasicMaterial({
+        color: 0xe0f2fe,
+        transparent: true,
+        opacity: cfg.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const rayMesh = new THREE.Mesh(rayGeo, rayMat);
+      rayMesh.position.set(cfg.x, cfg.y, cfg.z);
+      rayMesh.rotation.set(cfg.rotX, 0, cfg.rotZ);
+      rayMesh.userData = {
+        baseOpacity: cfg.opacity,
+        baseRotZ: cfg.rotZ,
+        baseRotX: cfg.rotX,
+        phase: cfg.phase
+      };
+      this.godRaysGroup!.add(rayMesh);
+    });
+    this.scene.add(this.godRaysGroup);
+
     // 2. Translucent Acrylic Glass Panels
     this.glassPanels = new THREE.Group();
     const glassMat = new THREE.MeshStandardMaterial({
@@ -100,7 +208,7 @@ export class SceneEnvironment {
     });
 
     const panelGeo = new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE);
-    
+
     // Front panel
     const front = new THREE.Mesh(panelGeo, glassMat);
     front.position.set(0, 0, HALF_CUBE);
@@ -125,14 +233,84 @@ export class SceneEnvironment {
 
     this.scene.add(this.glassPanels);
 
-    // 3. Sandy Ocean Floor Bed (40 x 1.5 x 40 at Y = -20)
-    const floorGeo = new THREE.BoxGeometry(CUBE_SIZE, 1.5, CUBE_SIZE);
+    // 3. Sculpted Multi-Zone Seabed (Perimeter Sandy Reef Dunes + Central/Rear Abyssal Volcanic Trench)
+    const floorGeo = new THREE.BoxGeometry(CUBE_SIZE, 1.5, CUBE_SIZE, 24, 2, 24);
+    const floorPos = floorGeo.attributes.position;
+    const floorColors = new Float32Array(floorPos.count * 3);
+    const sandDuneColor = new THREE.Color(0xfde047);
+    const twilightSlopeColor = new THREE.Color(0x334155);
+    const abyssTrenchColor = new THREE.Color(0x0f172a);
+    const vertColor = new THREE.Color();
+
+    for (let i = 0; i < floorPos.count; i++) {
+      const vx = floorPos.getX(i);
+      const vy = floorPos.getY(i);
+      const vz = floorPos.getZ(i);
+
+      // Distance from the central-rear abyssal trench basin (centered at X = 0, Z = -5)
+      const dx = vx / 14.0;
+      const dz = (vz + 5.0) / 12.0;
+      const trenchRadial = Math.sqrt(dx * dx + dz * dz);
+      const trenchFactor = Math.max(0, Math.min(1, 1.0 - trenchRadial));
+
+      // Sculpt top and upper vertices while keeping bottom base grounded on pedestal
+      if (vy > -0.6) {
+        const perimeterDunes =
+          Math.sin(vx * 0.25) * 0.45 +
+          Math.cos(vz * 0.22) * 0.4 +
+          Math.max(0, (Math.abs(vx) - 8) * 0.08);
+        const trenchDepression = -trenchFactor * 1.65;
+        const sculptedOffset = perimeterDunes * (1.0 - trenchFactor * 0.7) + trenchDepression;
+        floorPos.setY(i, vy + sculptedOffset);
+      }
+
+      if (trenchFactor > 0.45) {
+        const t = (trenchFactor - 0.45) / 0.55;
+        vertColor.copy(twilightSlopeColor).lerp(abyssTrenchColor, t);
+      } else {
+        const t = trenchFactor / 0.45;
+        vertColor.copy(sandDuneColor).lerp(twilightSlopeColor, t);
+      }
+      floorColors[i * 3] = vertColor.r;
+      floorColors[i * 3 + 1] = vertColor.g;
+      floorColors[i * 3 + 2] = vertColor.b;
+    }
+    floorGeo.setAttribute('color', new THREE.BufferAttribute(floorColors, 3));
+    floorGeo.computeVertexNormals();
+
     const floorMat = new THREE.MeshToonMaterial({
-      color: 0xfde047
+      color: 0xffffff,
+      vertexColors: true
     });
     this.sandFloor = new THREE.Mesh(floorGeo, floorMat);
     this.sandFloor.position.set(0, -HALF_CUBE, 0);
     this.scene.add(this.sandFloor);
+
+    // 3b. Abyssal Trench Baserock Outcrops along the central/rear trench rim
+    this.abyssalBaserock = new THREE.Group();
+    const basaltMat = new THREE.MeshToonMaterial({ color: 0x0f172a });
+    const glowingVeinMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const ridgeSpecs = [
+      { x: -9.5, y: -19.4, z: -8.0, sx: 2.8, sy: 1.4, sz: 2.0 },
+      { x: 9.5, y: -19.4, z: -7.5, sx: 2.6, sy: 1.5, sz: 2.1 },
+      { x: -4.0, y: -19.6, z: -15.5, sx: 3.4, sy: 1.8, sz: 2.2 },
+      { x: 5.0, y: -19.6, z: -15.0, sx: 3.2, sy: 1.7, sz: 2.0 }
+    ];
+    ridgeSpecs.forEach((spec, idx) => {
+      const rockGeo = new THREE.DodecahedronGeometry(1.0, 0);
+      rockGeo.scale(spec.sx, spec.sy, spec.sz);
+      const rockMesh = new THREE.Mesh(rockGeo, basaltMat);
+      rockMesh.position.set(spec.x, spec.y, spec.z);
+      rockMesh.rotation.y = idx * 0.8;
+      this.abyssalBaserock!.add(rockMesh);
+
+      const veinGeo = new THREE.BoxGeometry(spec.sx * 0.9, 0.12, 0.18);
+      const veinMesh = new THREE.Mesh(veinGeo, glowingVeinMat);
+      veinMesh.position.set(spec.x, spec.y + 0.45, spec.z + 0.6);
+      veinMesh.rotation.z = (idx % 2 === 0 ? 1 : -1) * 0.18;
+      this.abyssalBaserock!.add(veinMesh);
+    });
+    this.scene.add(this.abyssalBaserock);
 
     // 4. Stepped Diorama Pedestal Base (44 x 2 x 44 at Y = -21)
     const pedestalGeo = new THREE.BoxGeometry(CUBE_SIZE + 4, 2.0, CUBE_SIZE + 4);
@@ -155,7 +333,6 @@ export class SceneEnvironment {
     this.waterSurface.rotation.x = Math.PI / 2;
     this.waterSurface.position.set(0, HALF_CUBE, 0);
     this.scene.add(this.waterSurface);
-
 
     // 7. Etched Depth Scale Ticks along 4 Vertical Pillars
     this.depthTicks = new THREE.Group();
@@ -223,7 +400,6 @@ export class SceneEnvironment {
 
     // 3. Drifting Clouds Layer (Y = 32)
     const cloudGeo = new THREE.PlaneGeometry(240, 240);
-    // Procedural soft cloud texture pattern
     const cloudCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
     let cloudTexture: THREE.CanvasTexture | null = null;
     if (cloudCanvas) {
@@ -287,9 +463,12 @@ export class SceneEnvironment {
   public setDesktopMode(enabled: boolean): void {
     this.isDesktopMode = enabled;
 
-    // Toggle Diorama Cube Visibility
+    // Toggle Diorama Cube & 3-Tier Vivarium Backdrop/God-Rays Visibility
     if (this.vivariumFrame) this.vivariumFrame.visible = !enabled;
+    if (this.bathymetricBackdrop) this.bathymetricBackdrop.visible = !enabled;
+    if (this.godRaysGroup) this.godRaysGroup.visible = !enabled;
     if (this.sandFloor) this.sandFloor.visible = !enabled;
+    if (this.abyssalBaserock) this.abyssalBaserock.visible = !enabled;
     if (this.dioramaPedestal) this.dioramaPedestal.visible = !enabled;
     if (this.depthTicks) this.depthTicks.visible = !enabled;
     if (this.glassPanels) this.glassPanels.visible = !enabled;
@@ -361,7 +540,8 @@ export class SceneEnvironment {
   }
 
   /**
-   * Update particle animations, cloud drift, and infinite terrain tracking
+   * Update particle animations, volumetric god-ray shimmer, abyssal glow pulse,
+   * cloud drift, and infinite terrain tracking
    */
   public update(delta: number, time: number, focusPosition?: THREE.Vector3): void {
     const pos = this.bubblePositions;
@@ -380,6 +560,25 @@ export class SceneEnvironment {
     }
 
     this.bubbleParticles.geometry.attributes.position.needsUpdate = true;
+
+    // Shimmer volumetric god-rays in Sunlit zone
+    if (this.godRaysGroup && this.godRaysGroup.visible) {
+      this.godRaysGroup.children.forEach((child) => {
+        if (child instanceof THREE.Mesh) {
+          const u = child.userData || {};
+          const baseOp = typeof u.baseOpacity === 'number' ? u.baseOpacity : 0.15;
+          const phase = typeof u.phase === 'number' ? u.phase : 0;
+          const mat = child.material as THREE.MeshBasicMaterial;
+          mat.opacity = baseOp + Math.sin(time * 1.6 + phase) * 0.045;
+          child.rotation.z = (u.baseRotZ || -0.18) + Math.sin(time * 0.7 + phase) * 0.025;
+        }
+      });
+    }
+
+    // Gentle bioluminescent pulse in Abyssal trench
+    if (this.abyssalGlowLight) {
+      this.abyssalGlowLight.intensity = 2.2 + Math.sin(time * 2.1) * 0.35;
+    }
 
     // In Desktop Mode: Drift clouds and center infinite terrain
     if (this.isDesktopMode) {
@@ -408,16 +607,51 @@ export class SceneEnvironment {
   public dispose(): void {
     this.bubbleParticles.geometry.dispose();
     (this.bubbleParticles.material as THREE.Material).dispose();
+    this.scene.remove(this.bubbleParticles);
 
     if (this.vivariumFrame) {
       this.vivariumFrame.geometry.dispose();
       (this.vivariumFrame.material as THREE.Material).dispose();
       this.scene.remove(this.vivariumFrame);
     }
+    if (this.bathymetricBackdrop) {
+      this.bathymetricBackdrop.geometry.dispose();
+      (this.bathymetricBackdrop.material as THREE.Material).dispose();
+      if (this.backdropTexture) {
+        this.backdropTexture.dispose();
+      }
+      this.scene.remove(this.bathymetricBackdrop);
+    }
+    if (this.godRaysGroup) {
+      this.godRaysGroup.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => m.dispose());
+          } else if (obj.material) {
+            obj.material.dispose();
+          }
+        }
+      });
+      this.scene.remove(this.godRaysGroup);
+    }
     if (this.sandFloor) {
       this.sandFloor.geometry.dispose();
       (this.sandFloor.material as THREE.Material).dispose();
       this.scene.remove(this.sandFloor);
+    }
+    if (this.abyssalBaserock) {
+      this.abyssalBaserock.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((m) => m.dispose());
+          } else if (obj.material) {
+            obj.material.dispose();
+          }
+        }
+      });
+      this.scene.remove(this.abyssalBaserock);
     }
     if (this.waterSurface) {
       this.waterSurface.geometry.dispose();
@@ -454,6 +688,15 @@ export class SceneEnvironment {
       this.sunCorona.geometry.dispose();
       (this.sunCorona.material as THREE.Material).dispose();
       this.scene.remove(this.sunCorona);
+    }
+    if (this.sunlitLight) {
+      this.scene.remove(this.sunlitLight);
+    }
+    if (this.twilightLight) {
+      this.scene.remove(this.twilightLight);
+    }
+    if (this.abyssalGlowLight) {
+      this.scene.remove(this.abyssalGlowLight);
     }
   }
 }
