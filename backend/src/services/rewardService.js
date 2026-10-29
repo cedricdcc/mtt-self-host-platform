@@ -19,6 +19,62 @@ function awardRewardToUser(userId, rewardId) {
 
 function settleEventRewards(eventId) {
   const db = getDatabase();
+  const event = db.prepare("SELECT * FROM events WHERE id = ?").get(eventId);
+  if (!event) {
+    return { settled: false, reason: "Event not found" };
+  }
+
+  if (event.has_teams === 0) {
+    const topIndividual = db.prepare(`
+      SELECT user_id, SUM(points) as total_points
+      FROM event_contributions
+      WHERE event_id = ?
+      GROUP BY user_id
+      HAVING total_points > 0
+      ORDER BY total_points DESC
+      LIMIT 1
+    `).get(eventId);
+
+    if (!topIndividual) {
+      return { settled: false, reason: "No qualifying individual contributions found." };
+    }
+
+    const reward = db.prepare("SELECT * FROM event_rewards WHERE event_id = ? AND reward_type = 'TITLE' LIMIT 1").get(eventId);
+    if (!reward) {
+      return { settled: false, reason: "No profile title configured for this event." };
+    }
+
+    let awardedCount = 0;
+    const existing = db.prepare("SELECT id FROM user_rewards WHERE user_id = ? AND reward_id = ?").get(topIndividual.user_id, reward.id);
+    if (!existing) {
+      const urId = `ur_${crypto.randomUUID()}`;
+      db.prepare(`
+        INSERT INTO user_rewards (id, user_id, reward_id, is_equipped)
+        VALUES (?, ?, ?, 1)
+      `).run(urId, topIndividual.user_id, reward.id);
+      awardedCount++;
+    }
+
+    const winnerUser = db.prepare("SELECT username, extra FROM users WHERE id = ?").get(topIndividual.user_id);
+    let displayName = winnerUser ? winnerUser.username : "Individual Winner";
+    if (winnerUser && winnerUser.extra) {
+      try {
+        const extra = JSON.parse(winnerUser.extra);
+        if (extra && (extra.display_name || extra.name)) {
+          displayName = extra.display_name || extra.name;
+        }
+      } catch (e) {}
+    }
+
+    return {
+      settled: true,
+      teamName: displayName,
+      awardedCount,
+      titleName: reward.name,
+      userIds: [topIndividual.user_id]
+    };
+  }
+
   const reward = db.prepare("SELECT * FROM event_rewards WHERE event_id = ? AND reward_type = 'TITLE'").get(eventId);
   if (!reward) {
     return { settled: false, reason: "No reward defined for this event" };
