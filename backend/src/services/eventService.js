@@ -28,16 +28,6 @@ function ensureEventsTable() {
     try { db.prepare("ALTER TABLE events ADD COLUMN has_teams INTEGER NOT NULL DEFAULT 1 CHECK(has_teams IN (0, 1))").run(); } catch(e){}
   }
 
-  // Align events with 0 teams to has_teams = 0
-  try {
-    db.prepare(`
-      UPDATE events
-      SET has_teams = 0
-      WHERE NOT EXISTS (SELECT 1 FROM event_teams t WHERE t.event_id = events.id)
-        AND has_teams = 1
-    `).run();
-  } catch (e) {}
-
   // Ensure event_contributions.team_id allows NULL
   const contribInfo = db.prepare("PRAGMA table_info(event_contributions)").all();
   const teamIdCol = contribInfo.find(c => c.name === "team_id");
@@ -60,10 +50,6 @@ function ensureEventsTable() {
       PRAGMA foreign_keys=on;
     `);
   }
-
-  try {
-    syncActiveEventContributions();
-  } catch (e) {}
 }
 
 function syncActiveEventContributions(specificEventId = null) {
@@ -100,10 +86,16 @@ function syncActiveEventContributions(specificEventId = null) {
       ev.id
     );
 
+    const teamCount = db.prepare("SELECT COUNT(*) as c FROM event_teams WHERE event_id = ?").get(ev.id)?.c || 0;
+    const isTeamMode = ev.has_teams === 1 && teamCount > 0;
+
     for (const m of missing) {
       if (!m.user_id) continue;
       const teamMem = db.prepare("SELECT team_id FROM event_memberships WHERE event_id = ? AND user_id = ? AND is_active = 1 LIMIT 1").get(ev.id, m.user_id);
-      const teamId = ev.has_teams === 1 && teamMem ? teamMem.team_id : null;
+      if (isTeamMode && !teamMem) {
+        continue;
+      }
+      const teamId = isTeamMode && teamMem ? teamMem.team_id : null;
       insertStmt.run(`cnt_${crypto.randomUUID()}`, ev.id, teamId, m.user_id, m.translation_id, m.created_at);
     }
   }

@@ -30,6 +30,9 @@ function testFeaturedEvent() {
   assert.strictEqual(loaded1.is_featured_homepage, 0);
   assert.strictEqual(loaded2.is_featured_homepage, 0);
 
+  eventService.deleteEvent(evt1.id);
+  eventService.deleteEvent(evt2.id);
+
   console.log("✅ Featured homepage event test passed!");
 }
 

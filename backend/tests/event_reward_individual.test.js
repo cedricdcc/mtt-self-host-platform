@@ -1,20 +1,25 @@
 const assert = require("assert");
-const { getDatabase, applySchema, isDatabaseInitialized } = require("../src/db/database");
+const fs = require("fs");
+const path = require("path");
+
+const testDbPath = path.join(__dirname, 'test_event_reward_individual.db');
+process.env.SQLITE_DB_PATH = testDbPath;
+if (fs.existsSync(testDbPath)) {
+  fs.unlinkSync(testDbPath);
+}
+
+const { getDatabase } = require("../src/db/database");
+const { initializeDatabase } = require("../src/services/dbInit.service");
 const { createEvent, deleteEvent } = require("../src/services/eventService");
 const { settleEventRewards } = require("../src/services/rewardService");
 
 function runTest() {
   console.log("Running Task 4: Individual Reward Settlement test...");
-  if (!isDatabaseInitialized()) {
-    applySchema();
-  }
+  initializeDatabase();
   const db = getDatabase();
 
-  let user = db.prepare("SELECT id FROM users LIMIT 1").get();
-  if (!user) {
-    db.prepare("INSERT INTO users (username) VALUES ('solo_champ')").run();
-    user = db.prepare("SELECT id FROM users WHERE username = 'solo_champ'").get();
-  }
+  db.prepare("INSERT INTO users (username) VALUES ('solo_champ')").run();
+  const user = db.prepare("SELECT id FROM users WHERE username = 'solo_champ'").get();
 
   const evt = createEvent({
     title: "Solo Champ Event",
@@ -25,9 +30,6 @@ function runTest() {
   });
 
   try {
-    // Clean up any stale contribution from previous failed runs
-    db.prepare("DELETE FROM event_contributions WHERE id = 'c_solo'").run();
-
     // Insert contribution
     db.prepare(`
       INSERT INTO event_contributions (id, event_id, team_id, user_id, action_type, points)
@@ -49,11 +51,21 @@ function runTest() {
     assert.strictEqual(rewardRow.title_name, "Solo Legend 2026");
   } finally {
     // Clean up
-    db.prepare("DELETE FROM user_rewards WHERE reward_id IN (SELECT id FROM event_rewards WHERE event_id = ?)").run(evt.id);
-    db.prepare("DELETE FROM event_contributions WHERE id = 'c_solo'").run();
     deleteEvent(evt.id);
   }
+
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+
   console.log("PASS: Task 4 Individual Reward Settlement test passed!");
 }
 
-runTest();
+try {
+  runTest();
+} catch (err) {
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+  throw err;
+}

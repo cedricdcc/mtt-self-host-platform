@@ -1,21 +1,20 @@
 const assert = require("assert");
-const { getDatabase, applySchema, isDatabaseInitialized } = require("../src/db/database");
-const scoringService = require("../src/services/scoringService");
-
 const fs = require("fs");
 const path = require("path");
 
-try {
-  if (!isDatabaseInitialized()) {
-    applySchema();
-  }
-  const db = getDatabase();
+const testDbPath = path.join(__dirname, 'test_event_scoring.db');
+process.env.SQLITE_DB_PATH = testDbPath;
+if (fs.existsSync(testDbPath)) {
+  fs.unlinkSync(testDbPath);
+}
 
-  const hasEventsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='events'").get();
-  if (!hasEventsTable) {
-    const migrationSql = fs.readFileSync(path.join(__dirname, "../src/db/migrations/035_events.sql"), "utf8");
-    db.exec(migrationSql);
-  }
+const { getDatabase } = require("../src/db/database");
+const { initializeDatabase } = require("../src/services/dbInit.service");
+const scoringService = require("../src/services/scoringService");
+
+try {
+  initializeDatabase();
+  const db = getDatabase();
 
   db.prepare("INSERT OR IGNORE INTO users (id, username) VALUES (10, 'marine_user')").run();
   db.prepare(`
@@ -36,7 +35,6 @@ try {
   db.prepare("INSERT OR IGNORE INTO term_fields (id, term_id, field_uri, original_value) VALUES (1, 1, 'http://example.org/field1', 'orig')").run();
   db.prepare("INSERT OR IGNORE INTO translations (id, term_field_id, value) VALUES (101, 1, 'test')").run();
 
-  db.prepare("DELETE FROM event_contributions WHERE user_id = 10").run();
   const recorded = scoringService.recordEventContribution(10, 101, 'TRANSLATION_APPROVED', 'ALL');
   assert.ok(Array.isArray(recorded));
   assert.strictEqual(recorded.length, 1);
@@ -46,8 +44,15 @@ try {
   assert.strictEqual(contr.length, 1);
   assert.strictEqual(contr[0].points, 10);
 
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+
   console.log("PASS: Event scoring service test passed!");
 } catch (err) {
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
   console.error("FAIL: Event scoring service test failed:", err.message);
   process.exit(1);
 }

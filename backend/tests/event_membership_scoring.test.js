@@ -67,7 +67,7 @@ function testMembershipAndSourceScoredPoints() {
   const evtRes102 = res102.filter(r => r.event_id === evt.id);
   assert.strictEqual(evtRes102.length, 0);
 
-
+  eventService.deleteEvent(evt.id);
 
   console.log("✅ Source-scoped event contribution scoring test passed!");
 }

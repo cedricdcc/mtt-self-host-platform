@@ -1,18 +1,26 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+
+const testDbPath = path.join(__dirname, 'test_event_individual_scoring.db');
+process.env.SQLITE_DB_PATH = testDbPath;
+if (fs.existsSync(testDbPath)) {
+  fs.unlinkSync(testDbPath);
+}
+
 const { getDatabase } = require("../src/db/database");
+const { initializeDatabase } = require("../src/services/dbInit.service");
 const { createEvent, deleteEvent } = require("../src/services/eventService");
 const { recordEventContribution } = require("../src/services/scoringService");
 
 function runTest() {
   console.log("Running Task 2: Individual Scoring test...");
+  initializeDatabase();
   const db = getDatabase();
 
   // Ensure test user exists
-  let user = db.prepare("SELECT id FROM users LIMIT 1").get();
-  if (!user) {
-    db.prepare("INSERT INTO users (username) VALUES ('test_scorer')").run();
-    user = db.prepare("SELECT id FROM users WHERE username = 'test_scorer'").get();
-  }
+  db.prepare("INSERT INTO users (username) VALUES ('test_scorer')").run();
+  const user = db.prepare("SELECT id FROM users WHERE username = 'test_scorer'").get();
 
   // Create active event with hasTeams = false
   const now = new Date();
@@ -42,7 +50,19 @@ function runTest() {
   assert.strictEqual(row.points, 5);
 
   deleteEvent(evt.id);
+
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+
   console.log("PASS: Task 2 individual scoring test passed!");
 }
 
-runTest();
+try {
+  runTest();
+} catch (err) {
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
+  throw err;
+}

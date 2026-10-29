@@ -19,10 +19,10 @@ try {
   db.prepare("DELETE FROM events WHERE id = 'evt-1'").run();
   // Insert test event
   const stmtEvent = db.prepare(`
-    INSERT INTO events (id, title, description, start_date, end_date, target_category, status)
+    INSERT INTO events (id, title, description, start_date, end_date, target_language, status)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-  stmtEvent.run("evt-1", "Marine Bio Challenge", "Translate benthic terms", "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z", "Marine Biology", "ACTIVE");
+  stmtEvent.run("evt-1", "Marine Bio Challenge", "Translate benthic terms", "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z", "all", "ACTIVE");
 
   const fetchedEvent = db.prepare("SELECT * FROM events WHERE id = ?").get("evt-1");
   assert.strictEqual(fetchedEvent.title, "Marine Bio Challenge");
@@ -37,6 +37,8 @@ try {
   const fetchedTeam = db.prepare("SELECT * FROM event_teams WHERE id = ?").get("team-1");
   assert.strictEqual(fetchedTeam.name, "Team Coral");
   assert.strictEqual(fetchedTeam.join_code, "TM-CORAL-99");
+
+  db.prepare("DELETE FROM events WHERE id = 'evt-1'").run();
 
   console.log("PASS: Events database schema test passed!");
 } catch (err) {

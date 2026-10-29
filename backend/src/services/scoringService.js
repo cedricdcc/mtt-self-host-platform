@@ -27,6 +27,7 @@ function recordEventContribution(userId, translationId, actionType, category = '
   const sId = termSourceId !== undefined && termSourceId !== null ? termSourceId : null;
   const activeEvents = db.prepare(`
     SELECT e.id as event_id, e.has_teams,
+           (SELECT COUNT(*) FROM event_teams WHERE event_id = e.id) as team_count,
            (SELECT team_id FROM event_memberships WHERE event_id = e.id AND user_id = ? AND is_active = 1 LIMIT 1) as team_id
     FROM events e
     WHERE e.status = 'ACTIVE'
@@ -48,7 +49,11 @@ function recordEventContribution(userId, translationId, actionType, category = '
   const points = pointsMap[actionType] || 1;
 
   for (const ev of activeEvents) {
-    const assignedTeamId = ev.has_teams === 1 ? (ev.team_id || null) : null;
+    const isTeamMode = ev.has_teams === 1 && (ev.team_count || 0) > 0;
+    if (isTeamMode && !ev.team_id) {
+      continue;
+    }
+    const assignedTeamId = isTeamMode ? ev.team_id : null;
     const id = `cnt_${crypto.randomUUID()}`;
     stmt.run(id, ev.event_id, assignedTeamId, userId, translationId || null, actionType, points);
     inserted.push({ id, event_id: ev.event_id, team_id: assignedTeamId, points });

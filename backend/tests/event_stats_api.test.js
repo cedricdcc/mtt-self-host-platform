@@ -1,10 +1,21 @@
 const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
+
+const testDbPath = path.join(__dirname, 'test_event_stats_api.db');
+process.env.SQLITE_DB_PATH = testDbPath;
+if (fs.existsSync(testDbPath)) {
+  fs.unlinkSync(testDbPath);
+}
+
 const { getDatabase } = require("../src/db/database");
+const { initializeDatabase } = require("../src/services/dbInit.service");
 const { createEvent, deleteEvent, getEventStats } = require("../src/services/eventService");
 const eventController = require("../src/controllers/eventController");
 
 async function runTest() {
   console.log("Running Task 3: Event Stats API service & controller test...");
+  initializeDatabase();
   const db = getDatabase();
 
   // Clean up any stale test records from prior runs
@@ -170,10 +181,16 @@ async function runTest() {
     // Cleanup
     deleteEvent(evt.id);
     db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(user1.id, user2.id);
+    if (fs.existsSync(testDbPath)) {
+      fs.unlinkSync(testDbPath);
+    }
   }
 }
 
 runTest().catch(err => {
+  if (fs.existsSync(testDbPath)) {
+    fs.unlinkSync(testDbPath);
+  }
   console.error("FAIL: Task 3 Event Stats API test failed:", err);
   process.exit(1);
 });

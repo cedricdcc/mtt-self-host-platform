@@ -65,6 +65,9 @@ try {
   const fetchedEvent = eventService.getEventById(rewEvent.id);
   assert.strictEqual(fetchedEvent.reward_title, 'Coral Sprint Champion 2026');
 
+  eventService.deleteEvent('evt-test-1');
+  eventService.deleteEvent(rewEvent.id);
+
   console.log("PASS: Events API service test passed!");
   process.exit(0);
 } catch (err) {
