@@ -4,6 +4,7 @@ import { fetchEventDetails, joinEventTeam, deleteEvent, deleteTeam, fetchEventSt
 import { Event, EventStatsResponse } from "../types";
 import { QRCodeModal } from "../components/QRCodeModal";
 import { EventActivityChart } from "../components/EventActivityChart";
+import { EventIndividualLeaderboard } from "../components/EventIndividualLeaderboard";
 import { useAuth } from "../context/AuthContext";
 import { Trash2, Trophy, Users, Zap, QrCode, Activity } from "lucide-react";
 import toast from "react-hot-toast";
@@ -257,16 +258,30 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
                 </h3>
                 <p className="text-xs text-slate-300 mt-1 max-w-xl">
                   {event.status === 'ENDED'
-                    ? "🏆 Competition concluded! Members of the 1st place team with active translation contributions have received this exclusive title on their profile."
-                    : "Members of the 1st place team with active translation contributions will unlock this exclusive title on their profile."
+                    ? (event.has_teams === 0
+                        ? "🏆 Competition concluded! The 1st place contributor has received this exclusive title on their profile."
+                        : "🏆 Competition concluded! Members of the 1st place team with active translation contributions have received this exclusive title on their profile.")
+                    : (event.has_teams === 0
+                        ? "The 1st place contributor will unlock this exclusive title on their profile."
+                        : "Members of the 1st place team with active translation contributions will unlock this exclusive title on their profile.")
                   }
                 </p>
               </div>
             </div>
-            {event.status === 'ENDED' && event.teams && event.teams.length > 0 && (event.teams[0].total_points || 0) > 0 && (
-              <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 self-start sm:self-center">
-                <span>🥇 Winner: {event.teams[0].name} ({event.teams[0].total_points} pts)</span>
-              </div>
+            {event.status === 'ENDED' && (
+              event.has_teams === 0 ? (
+                eventStats?.individualLeaderboard && eventStats.individualLeaderboard.length > 0 && (eventStats.individualLeaderboard[0].totalPoints || 0) > 0 && (
+                  <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 self-start sm:self-center">
+                    <span>🥇 Winner: {eventStats.individualLeaderboard[0].name} ({eventStats.individualLeaderboard[0].totalPoints} pts)</span>
+                  </div>
+                )
+              ) : (
+                event.teams && event.teams.length > 0 && (event.teams[0].total_points || 0) > 0 && (
+                  <div className="px-4 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-2 self-start sm:self-center">
+                    <span>🥇 Winner: {event.teams[0].name} ({event.teams[0].total_points} pts)</span>
+                  </div>
+                )
+              )
             )}
           </div>
         </div>
@@ -380,133 +395,142 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
       </div>
 
       {/* Leaderboard Podium */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <Trophy className="w-6 h-6 text-amber-500" /> Team Leaderboard
-        </h2>
-      </div>
-
-      {event.teams && event.teams.length > 0 ? (
-        <div className="space-y-6">
-          {/* Top 3 Podium Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            {event.teams.slice(0, 3).map((team, idx) => {
-              const isTarget = targetTeamId === team.id;
-              const isMyTeam = team.is_user_member || event.user_team_id === team.id;
-              return (
-                <div
-                  key={team.id}
-                  id={`team-card-${team.id}`}
-                  className={`bg-white dark:bg-slate-800/90 border rounded-2xl p-6 shadow-lg relative overflow-hidden transition-all duration-500 ${
-                    isMyTeam ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40" :
-                    isTarget ? "ring-4 ring-cyan-500 border-cyan-500 bg-cyan-50/60 dark:bg-cyan-950/60 shadow-[0_0_25px_rgba(6,182,212,0.4)] scale-[1.02]" :
-                    idx === 0 ? "border-amber-400 dark:border-amber-500/50 bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent" :
-                    idx === 1 ? "border-slate-300 dark:border-slate-500/50 bg-gradient-to-b from-slate-400/10 via-slate-400/5 to-transparent" :
-                    "border-amber-700/40 dark:border-amber-700/50 bg-gradient-to-b from-amber-700/10 via-amber-700/5 to-transparent"
-                  }`}
-                >
-                  {isMyTeam ? (
-                    <div className="absolute top-3 right-3 px-2.5 py-0.5 bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-full shadow-sm">
-                      ✓ Your Team
-                    </div>
-                  ) : isTarget ? (
-                    <div className="absolute top-3 right-3 px-2.5 py-0.5 bg-cyan-500 text-slate-950 font-bold text-[10px] uppercase rounded-full animate-bounce shadow-sm">
-                      Selected via QR
-                    </div>
-                  ) : null}
-
-                  <div className="text-3xl mb-2">{idx === 0 ? "🥇 1st Place" : idx === 1 ? "🥈 2nd Place" : "🥉 3rd Place"}</div>
-                  <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-1">{team.name}</h3>
-                  <p className="text-cyan-600 dark:text-cyan-400 font-mono font-extrabold text-xl">{team.total_points || 0} pts</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4 flex items-center justify-center gap-1">
-                    <Users size={12} /> {team.member_count || 0} members • Code: {team.join_code}
-                  </p>
-                  
-                  <div className="flex items-center justify-center gap-2">
-                    {!isMyTeam && (
-                      <button
-                        onClick={() => handleJoinTeamDirect(team.join_code)}
-                        disabled={joining}
-                        className={`px-4 py-2 font-bold text-xs rounded-xl shadow transition ${
-                          isTarget ? "bg-cyan-500 text-slate-950 hover:bg-cyan-400" : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                        }`}
-                      >
-                        Join {team.name} &rarr;
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => setActiveJoinCode(team.join_code)}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-600 transition"
-                    >
-                      Show QR
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+      {event.has_teams === 0 ? (
+        <EventIndividualLeaderboard
+          contributors={eventStats?.individualLeaderboard || []}
+          currentUserId={user?.id}
+        />
+      ) : (
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Trophy className="w-6 h-6 text-amber-500" /> Team Leaderboard
+            </h2>
           </div>
 
-          {/* Remaining Teams List (4th Place Onwards) */}
-          {event.teams.length > 3 && (
-            <div className="space-y-3 mt-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Other Competing Teams</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {event.teams.slice(3).map((team, idx) => {
+          {event.teams && event.teams.length > 0 ? (
+            <div className="space-y-6">
+              {/* Top 3 Podium Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                {event.teams.slice(0, 3).map((team, idx) => {
                   const isTarget = targetTeamId === team.id;
                   const isMyTeam = team.is_user_member || event.user_team_id === team.id;
                   return (
                     <div
                       key={team.id}
                       id={`team-card-${team.id}`}
-                      className={`bg-white dark:bg-slate-800/90 border rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition ${
-                        isMyTeam ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/30" :
-                        isTarget ? "ring-2 ring-cyan-500 border-cyan-500 bg-cyan-50/30 dark:bg-cyan-950/30" :
-                        "border-slate-200 dark:border-slate-700"
+                      className={`bg-white dark:bg-slate-800/90 border rounded-2xl p-6 shadow-lg relative overflow-hidden transition-all duration-500 ${
+                        isMyTeam ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40" :
+                        isTarget ? "ring-4 ring-cyan-500 border-cyan-500 bg-cyan-50/60 dark:bg-cyan-950/60 shadow-[0_0_25px_rgba(6,182,212,0.4)] scale-[1.02]" :
+                        idx === 0 ? "border-amber-400 dark:border-amber-500/50 bg-gradient-to-b from-amber-500/10 via-amber-500/5 to-transparent" :
+                        idx === 1 ? "border-slate-300 dark:border-slate-500/50 bg-gradient-to-b from-slate-400/10 via-slate-400/5 to-transparent" :
+                        "border-amber-700/40 dark:border-amber-700/50 bg-gradient-to-b from-amber-700/10 via-amber-700/5 to-transparent"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-slate-400 dark:text-slate-500 text-sm">#{idx + 4}</span>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-slate-900 dark:text-white text-sm">{team.name}</h4>
-                            {isMyTeam && (
-                              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-[10px] font-bold rounded">Your Team</span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">{team.member_count || 0} members • Code: {team.join_code}</p>
+                      {isMyTeam ? (
+                        <div className="absolute top-3 right-3 px-2.5 py-0.5 bg-emerald-500 text-white font-bold text-[10px] uppercase rounded-full shadow-sm">
+                          ✓ Your Team
                         </div>
-                      </div>
+                      ) : isTarget ? (
+                        <div className="absolute top-3 right-3 px-2.5 py-0.5 bg-cyan-500 text-slate-950 font-bold text-[10px] uppercase rounded-full animate-bounce shadow-sm">
+                          Selected via QR
+                        </div>
+                      ) : null}
 
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">{team.total_points || 0} pts</span>
+                      <div className="text-3xl mb-2">{idx === 0 ? "🥇 1st Place" : idx === 1 ? "🥈 2nd Place" : "🥉 3rd Place"}</div>
+                      <h3 className="font-bold text-xl text-slate-900 dark:text-white mb-1">{team.name}</h3>
+                      <p className="text-cyan-600 dark:text-cyan-400 font-mono font-extrabold text-xl">{team.total_points || 0} pts</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-4 flex items-center justify-center gap-1">
+                        <Users size={12} /> {team.member_count || 0} members • Code: {team.join_code}
+                      </p>
+                      
+                      <div className="flex items-center justify-center gap-2">
                         {!isMyTeam && (
                           <button
                             onClick={() => handleJoinTeamDirect(team.join_code)}
                             disabled={joining}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg shadow transition"
+                            className={`px-4 py-2 font-bold text-xs rounded-xl shadow transition ${
+                              isTarget ? "bg-cyan-500 text-slate-950 hover:bg-cyan-400" : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                            }`}
                           >
-                            Join &rarr;
+                            Join {team.name} &rarr;
                           </button>
                         )}
+
                         <button
                           onClick={() => setActiveJoinCode(team.join_code)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition"
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-600 transition"
                         >
-                          QR
+                          Show QR
                         </button>
                       </div>
                     </div>
                   );
                 })}
               </div>
+
+              {/* Remaining Teams List (4th Place Onwards) */}
+              {event.teams.length > 3 && (
+                <div className="space-y-3 mt-6">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Other Competing Teams</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {event.teams.slice(3).map((team, idx) => {
+                      const isTarget = targetTeamId === team.id;
+                      const isMyTeam = team.is_user_member || event.user_team_id === team.id;
+                      return (
+                        <div
+                          key={team.id}
+                          id={`team-card-${team.id}`}
+                          className={`bg-white dark:bg-slate-800/90 border rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition ${
+                            isMyTeam ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/30" :
+                            isTarget ? "ring-2 ring-cyan-500 border-cyan-500 bg-cyan-50/30 dark:bg-cyan-950/30" :
+                            "border-slate-200 dark:border-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-slate-400 dark:text-slate-500 text-sm">#{idx + 4}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-slate-900 dark:text-white text-sm">{team.name}</h4>
+                                {isMyTeam && (
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-[10px] font-bold rounded">Your Team</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{team.member_count || 0} members • Code: {team.join_code}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-sm">{team.total_points || 0} pts</span>
+                            {!isMyTeam && (
+                              <button
+                                onClick={() => handleJoinTeamDirect(team.join_code)}
+                                disabled={joining}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg shadow transition"
+                              >
+                                Join &rarr;
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setActiveJoinCode(team.join_code)}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 transition"
+                            >
+                              QR
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 shadow-sm">
+              No competing teams created for this event yet.
             </div>
           )}
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 shadow-sm">
-          No competing teams created for this event yet.
-        </div>
+        </>
       )}
 
       {/* QR Code Viewer */}
