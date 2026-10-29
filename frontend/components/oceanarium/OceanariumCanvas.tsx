@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { UserFish } from '../../types';
 import { ThreeGameDirector, OceanariumMode } from './engine/ThreeGameDirector';
 import { ObservedFishData } from './engine/SubmarineDirector';
-import { Maximize2, Minimize2, Sparkles, Compass, Eye, X, RotateCcw } from 'lucide-react';
+import { Maximize2, Minimize2, Sparkles, Compass, Eye, X, RotateCcw, ChevronUp, ChevronDown, ScanEye } from 'lucide-react';
 import FishInfographicPanel from './FishInfographicPanel';
 
 interface OceanariumCanvasProps {
@@ -36,6 +36,8 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
   const [showControls, setShowControls] = useState(true);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [activeZone, setActiveZone] = useState<'sunlit' | 'twilight' | 'abyssal'>('sunlit');
+  const [isRosterOpen, setIsRosterOpen] = useState(false);
+  const pointerDownRef = useRef<{ x: number; y: number; isDragging: boolean; isPan: boolean } | null>(null);
 
   // Initialize ThreeGameDirector
   useEffect(() => {
@@ -119,7 +121,13 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
     }
   };
 
-  // Keyboard navigation: ESC for Desktop Mode, R for Reset View
+  const handleFrontView = () => {
+    if (directorRef.current) {
+      directorRef.current.snapToFrontView();
+    }
+  };
+
+  // Keyboard navigation: ESC for Desktop Mode, R for Reset View, F for Front Glass View
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isDesktopMode) {
@@ -127,6 +135,9 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       }
       if ((e.key === 'r' || e.key === 'R') && !isDesktopMode) {
         handleResetView();
+      }
+      if ((e.key === 'f' || e.key === 'F') && !isDesktopMode) {
+        handleFrontView();
       }
     };
 
@@ -173,32 +184,89 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
     }
   };
 
-  // Canvas Interactions
+  // Roster & Specimen Cycling Helpers
+  const handleSelectFishFromRoster = (fish: UserFish) => {
+    if (directorRef.current) {
+      const selected = directorRef.current.selectFishById(fish.user_fish_id);
+      if (selected) {
+        setSelectedFish(selected);
+        return;
+      }
+    }
+    setSelectedFish(fish);
+    if (onSelectFish) onSelectFish(fish);
+  };
+
+  const selectedFishIndex = selectedFish
+    ? Math.max(0, fishes.findIndex((f) => f.user_fish_id === selectedFish.user_fish_id))
+    : 0;
+
+  const handlePrevFish = () => {
+    if (fishes.length === 0) return;
+    const prevIdx = (selectedFishIndex - 1 + fishes.length) % fishes.length;
+    handleSelectFishFromRoster(fishes[prevIdx]);
+  };
+
+  const handleNextFish = () => {
+    if (fishes.length === 0) return;
+    const nextIdx = (selectedFishIndex + 1) % fishes.length;
+    handleSelectFishFromRoster(fishes[nextIdx]);
+  };
+
+  const handleBoopSelectedFish = () => {
+    if (selectedFish && directorRef.current) {
+      directorRef.current.boopFish(selectedFish.user_fish_id);
+    }
+  };
+
+  // Canvas Interactions with < 5px click-vs-drag threshold
   const handlePointerDown = (e: React.PointerEvent) => {
     const director = directorRef.current;
-    const canvas = canvasRef.current;
-    if (!director || !canvas) return;
+    if (!director) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const hitFish = director.handlePointerDown(e.clientX, e.clientY, rect);
+    const isPan = e.button === 2 || e.shiftKey;
+    pointerDownRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      isDragging: false,
+      isPan
+    };
 
-    // If no fish was hit and food mode is active, drop food in 3D
-    if (!hitFish && (foodMode === 'flake' || foodMode === 'super_pellet') && !isDesktopMode) {
-      director.feed(foodMode);
-      onFeed(foodMode);
-    }
+    director.cameraDirector.onPointerDown(e.clientX, e.clientY, isPan);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     handleMouseMove();
+    if (pointerDownRef.current) {
+      const dist = Math.hypot(e.clientX - pointerDownRef.current.x, e.clientY - pointerDownRef.current.y);
+      if (dist >= 5) {
+        pointerDownRef.current.isDragging = true;
+      }
+    }
     if (directorRef.current) {
       directorRef.current.handlePointerMove(e.clientX, e.clientY);
     }
   };
 
-  const handlePointerUp = () => {
-    if (directorRef.current) {
-      directorRef.current.handlePointerUp();
+  const handlePointerUp = (e: React.PointerEvent) => {
+    const director = directorRef.current;
+    const canvas = canvasRef.current;
+    const pState = pointerDownRef.current;
+    pointerDownRef.current = null;
+
+    if (!director) return;
+    director.handlePointerUp();
+
+    if (pState && !pState.isDragging && canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const hitFish = director.handlePointerDown(e.clientX, e.clientY, rect, pState.isPan);
+      director.handlePointerUp();
+
+      // If no fish was hit and food mode is active, drop food in 3D
+      if (!hitFish && (foodMode === 'flake' || foodMode === 'super_pellet') && !isDesktopMode) {
+        director.feed(foodMode);
+        onFeed(foodMode);
+      }
     }
   };
 
@@ -216,10 +284,12 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       {/* 3D WebGL Canvas */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full block cursor-default"
+        className="w-full h-full block cursor-grab active:cursor-grabbing"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onWheel={(e) => directorRef.current?.handleWheel(e.deltaY)}
+        onContextMenu={(e) => e.preventDefault()}
       />
 
       {/* STANDARD VIEW: Depth Markers & Quick Jump Pills (Left Edge) */}
@@ -256,6 +326,28 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       {/* STANDARD VIEW: Top-Right Glass Controls Dock with Rich Tooltips */}
       {!isDesktopMode && (
         <div className="absolute right-4 top-6 z-10 pointer-events-auto flex items-center gap-2.5">
+          {/* Front Glass View Button */}
+          <div className="relative group">
+            <button
+              onClick={handleFrontView}
+              className="flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-900/85 hover:bg-slate-800 text-cyan-300 hover:text-white border border-cyan-500/30 hover:border-cyan-400 shadow-lg shadow-cyan-950/40 backdrop-blur-md transition-all hover:scale-105 active:scale-95"
+              aria-label="Front Glass View"
+            >
+              <ScanEye className="w-4 h-4 transition-transform group-hover:scale-110 duration-300" />
+            </button>
+
+            {/* Tooltip Card */}
+            <div className="absolute right-0 top-full mt-2 hidden group-hover:flex flex-col w-56 p-3 rounded-2xl bg-slate-950/95 border border-cyan-500/40 shadow-2xl backdrop-blur-xl pointer-events-none z-30 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-white">Front Glass View</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-700/50 text-[10px] font-mono text-cyan-300">F</kbd>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+                Snaps camera straight-on to the aquarium glass for side-profile inspection.
+              </p>
+            </div>
+          </div>
+
           {/* Reset View Button */}
           <div className="relative group">
             <button
@@ -305,9 +397,52 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
 
       {/* STANDARD VIEW: Bottom-Left Camera Navigation Hint Pill */}
       {!isDesktopMode && (
-        <div className="absolute left-4 bottom-6 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-slate-800 text-[11px] font-mono text-slate-400">
+        <div className="absolute left-4 bottom-6 z-10 pointer-events-none hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/70 backdrop-blur-md border border-slate-800 text-[11px] font-mono text-slate-400">
           <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-          <span>Locked Isometric View • Click specimen to inspect • Press <strong className="text-cyan-300">[R]</strong> to re-center</span>
+          <span>
+            Isometric View • Drag to orbit • Scroll to zoom • Click specimen to inspect •{' '}
+            <strong className="text-cyan-300">[R]</strong> Iso • <strong className="text-cyan-300">[F]</strong> Front
+          </span>
+        </div>
+      )}
+
+      {/* STANDARD VIEW: Collapsible Tank Specimen Roster Bar (Bottom-Center) */}
+      {!isDesktopMode && fishes.length > 0 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center max-w-[92%] sm:max-w-xl">
+          {isRosterOpen && (
+            <div className="mb-2 w-full max-h-40 overflow-y-auto p-2.5 rounded-2xl bg-slate-950/90 backdrop-blur-xl border border-cyan-500/40 shadow-2xl flex flex-wrap items-center justify-center gap-1.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+              {fishes.map((fish) => {
+                const isSelected = selectedFish?.user_fish_id === fish.user_fish_id;
+                const displayName = fish.nickname || fish.name || fish.species_id.replace(/_/g, ' ');
+                return (
+                  <button
+                    key={fish.user_fish_id}
+                    onClick={() => handleSelectFishFromRoster(fish)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-mono transition-all border ${
+                      isSelected
+                        ? 'bg-cyan-500/25 border-cyan-400 text-white shadow-md shadow-cyan-500/20 scale-105'
+                        : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:border-slate-600 hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: fish.visual_traits?.primary_color || '#00d2ff' }}
+                    />
+                    <span className="truncate max-w-[120px] capitalize">{displayName}</span>
+                    {Boolean(fish.is_shiny) && <Sparkles className="w-3 h-3 text-amber-300 flex-shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsRosterOpen((prev) => !prev)}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/85 hover:bg-slate-900 text-cyan-300 hover:text-white border border-cyan-500/40 shadow-xl backdrop-blur-md text-xs font-mono font-bold transition-all"
+          >
+            <span>Specimens in Tank ({fishes.length})</span>
+            {isRosterOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          </button>
         </div>
       )}
 
@@ -371,6 +506,12 @@ export const OceanariumCanvas: React.FC<OceanariumCanvasProps> = ({
       {!isDesktopMode && selectedFish && (
         <FishInfographicPanel
           fish={selectedFish}
+          fishIndex={selectedFishIndex}
+          currentIndex={selectedFishIndex}
+          totalFishes={fishes.length}
+          onPrevFish={handlePrevFish}
+          onNextFish={handleNextFish}
+          onBoopFish={handleBoopSelectedFish}
           onClose={() => {
             setSelectedFish(null);
             if (directorRef.current) {

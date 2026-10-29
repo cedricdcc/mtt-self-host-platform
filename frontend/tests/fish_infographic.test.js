@@ -20,6 +20,14 @@ function run() {
   assert.ok(panelContent.includes('hand') || panelContent.includes('diver') || panelContent.includes('Scale') || panelContent.includes('Ruler'), 'Must include comparative physical scale visualizer');
   assert.ok(panelContent.includes('sunlit') && panelContent.includes('twilight') && panelContent.includes('abyssal'), 'Must display bathymetric depth stratum column');
   assert.ok(panelContent.includes('Vitality') || panelContent.includes('Velocity') || panelContent.includes('Speed') || panelContent.includes('Diet'), 'Must display bio-telemetry stats');
+  assert.ok(
+    panelContent.includes('onPrevFish') && panelContent.includes('onNextFish') && panelContent.includes('totalFishes'),
+    'Must support onPrevFish, onNextFish, and totalFishes props for specimen cycling'
+  );
+  assert.ok(
+    panelContent.includes('onBoopFish') && panelContent.includes('Boop Specimen'),
+    'Must support onBoopFish prop and render Boop Specimen button'
+  );
 
   const canvasContent = fs.readFileSync(canvasPath, 'utf8');
   assert.ok(canvasContent.includes('FishInfographicPanel'), 'OceanariumCanvas must render FishInfographicPanel');

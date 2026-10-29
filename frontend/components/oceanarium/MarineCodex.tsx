@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
 import { CodexResponse, GachaSpecies } from '../../types';
 import { SPECIES_LORE, SpeciesLore } from '../../utils/speciesLore';
-import { BookOpen, Award, Lock, Sparkles, Filter, X, HelpCircle, Heart, Quote, Compass } from 'lucide-react';
+import { BookOpen, Award, Lock, Sparkles, Filter, X, HelpCircle, Heart, Quote, Compass, Rotate3d } from 'lucide-react';
+import Species3DPreview from './Species3DPreview';
+
+const STATIC_PNG_SPECIES = new Set([
+  'azure_damselfish',
+  'bioluminescent_angler',
+  'cosmic_jelly',
+  'dumbo_specter',
+  'emerald_parrotfish',
+  'golden_seahorse',
+  'sapphire_manta',
+  'solar_lionfish',
+  'spotted_pufferfish',
+  'sunburst_tang'
+]);
 
 interface MarineCodexProps {
   codexData: CodexResponse;
@@ -138,7 +152,7 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
                   }}
                 >
                   {isDiscovered ? (
-                    lore && lore.image && !hasImgError ? (
+                    lore && lore.image && STATIC_PNG_SPECIES.has(species.id) && !hasImgError ? (
                       <img
                         src={lore.image}
                         alt={species.name}
@@ -146,7 +160,11 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
                         onError={() => setImgErrorMap(prev => ({ ...prev, [species.id]: true }))}
                       />
                     ) : (
-                      <span className="text-3xl select-none">{lore?.emoji || '🐟'}</span>
+                      <Species3DPreview
+                        species={species}
+                        isShiny={Boolean(species.discovered_shiny)}
+                        interactive={false}
+                      />
                     )
                   ) : (
                     <div className="flex flex-col items-center justify-center text-slate-600 gap-1 select-none">
@@ -202,33 +220,33 @@ export const MarineCodex: React.FC<MarineCodexProps> = ({ codexData }) => {
               <X className="w-5 h-5" />
             </button>
 
-            {/* Specimen Header & Visual */}
+            {/* Specimen Header & Interactive 3D Turntable Showcase */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-5">
-              {/* Artwork Box */}
+              {/* Interactive 3D Specimen Turntable Box */}
               <div
-                className={`w-28 h-28 sm:w-32 sm:h-32 rounded-3xl flex items-center justify-center border-2 relative overflow-hidden shadow-2xl flex-shrink-0 ${
+                className={`w-36 h-36 sm:w-40 sm:h-40 rounded-3xl flex items-center justify-center border-2 relative overflow-hidden shadow-2xl flex-shrink-0 ${
                   inspectingShiny
                     ? 'border-amber-400 shadow-amber-500/30'
-                    : 'border-white/20 shadow-cyan-500/20'
+                    : 'border-cyan-400/40 shadow-cyan-500/20'
                 }`}
                 style={{
                   background: inspectingShiny
-                    ? `linear-gradient(135deg, #ffd700, #ff80bf, #40e0d0)`
-                    : `linear-gradient(135deg, ${inspectingSpecies.visual_traits?.primary_color || '#00d2ff'}, ${inspectingSpecies.visual_traits?.secondary_color || '#3a7bd5'})`
+                    ? `radial-gradient(circle at 50% 40%, #3b2f0b, #090d16)`
+                    : `radial-gradient(circle at 50% 40%, ${inspectingSpecies.visual_traits?.primary_color || '#00d2ff'}33, #090d16)`
                 }}
               >
-                {inspectingLore && inspectingLore.image && !imgErrorMap[inspectingSpecies.id] ? (
-                  <img
-                    src={inspectingLore.image}
-                    alt={inspectingSpecies.name}
-                    className={`w-full h-full object-cover object-center ${inspectingShiny ? 'brightness-110 contrast-105' : ''}`}
-                  />
-                ) : (
-                  <span className="text-5xl select-none">{inspectingShiny ? '✨' : inspectingLore?.emoji || '🐟'}</span>
-                )}
+                <Species3DPreview
+                  species={inspectingSpecies}
+                  isShiny={inspectingShiny}
+                  interactive={true}
+                />
                 {inspectingShiny && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-amber-500/30 via-transparent to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-amber-500/20 via-transparent to-transparent pointer-events-none" />
                 )}
+                <div className="absolute bottom-1.5 inset-x-1.5 px-2 py-0.5 rounded-full bg-slate-950/80 border border-cyan-500/30 text-[9px] font-mono text-cyan-300 flex items-center justify-center gap-1 pointer-events-none">
+                  <Rotate3d className="w-2.5 h-2.5" />
+                  <span>Drag to rotate 3D model</span>
+                </div>
               </div>
 
               {/* Title, Nickname & Badges */}

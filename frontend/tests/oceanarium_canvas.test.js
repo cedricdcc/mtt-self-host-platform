@@ -35,6 +35,23 @@ function run() {
   assert.ok(canvasContent.includes('Reset View'), 'Must display Reset View tooltip/label');
   assert.ok(canvasContent.includes("e.key === 'r'") || canvasContent.includes("e.key === 'R'"), 'Must listen for R key to reset view');
 
+  // Verify Front Glass View [F], wheel zoom, click-vs-drag threshold, and collapsible Tank Specimen Roster
+  assert.ok(canvasContent.includes('snapToFrontView'), 'Must wire snapToFrontView for Front Glass View');
+  assert.ok(canvasContent.includes("e.key === 'f'") || canvasContent.includes("e.key === 'F'"), 'Must listen for F key to snap to Front Glass View');
+  assert.ok(canvasContent.includes('handleWheel') && canvasContent.includes('onWheel'), 'Must wire onWheel to director.handleWheel');
+  assert.ok(
+    canvasContent.includes('isRosterOpen') && canvasContent.includes('Specimens in Tank'),
+    'Must render collapsible Specimens in Tank roster bar'
+  );
+  assert.ok(
+    canvasContent.includes('pointerDownRef') && canvasContent.includes('isDragging') && canvasContent.includes('Math.hypot'),
+    'Must implement < 5px click-vs-drag threshold'
+  );
+  assert.ok(
+    canvasContent.includes('selectFishById') && canvasContent.includes('boopFish'),
+    'Must wire selectFishById and boopFish in OceanariumCanvas'
+  );
+
   console.log('✓ Oceanarium 100% width and canvas navigation verified');
 }
 

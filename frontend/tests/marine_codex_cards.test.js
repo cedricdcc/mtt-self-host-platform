@@ -25,4 +25,19 @@ assert.ok(content.includes('personality'), 'MarineCodex.tsx must display persona
 // 3. Silhouette / lock for undiscovered species
 assert.ok(content.includes('Undiscovered') || content.includes('silhouette'), 'MarineCodex.tsx must handle undiscovered silhouettes');
 
+// 4. Species3DPreview component existence and integration in MarineCodex.tsx
+const previewPath = path.fileURLToPath
+  ? path.fileURLToPath(new URL('../components/oceanarium/Species3DPreview.tsx', import.meta.url))
+  : 'frontend/components/oceanarium/Species3DPreview.tsx';
+assert.ok(fs.existsSync(previewPath), 'Species3DPreview.tsx must exist');
+
+const previewContent = fs.readFileSync(previewPath, 'utf8');
+assert.ok(previewContent.includes('CartoonFishFactory'), 'Species3DPreview must use CartoonFishFactory');
+assert.ok(previewContent.includes('FishBoidsSystem.animateFishMesh'), 'Species3DPreview must use FishBoidsSystem.animateFishMesh');
+assert.ok(previewContent.includes('interactive'), 'Species3DPreview must support interactive and snapshot modes');
+
+assert.ok(content.includes('Species3DPreview'), 'MarineCodex.tsx must import and render Species3DPreview');
+assert.ok(content.includes('interactive={true}'), 'MarineCodex.tsx must render interactive 3D preview in Inspect Modal');
+assert.ok(content.includes('interactive={false}'), 'MarineCodex.tsx must render non-interactive 3D snapshot on discovered cards');
+
 console.log('✓ MarineCodex funny cards test passed');

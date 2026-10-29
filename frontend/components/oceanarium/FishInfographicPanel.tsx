@@ -10,13 +10,21 @@ import {
   Compass, 
   Zap, 
   Droplets,
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export interface FishInfographicPanelProps {
   fish: UserFish;
   onClose: () => void;
   onFeedFish?: (type: 'flake' | 'super_pellet') => void;
+  onPrevFish?: () => void;
+  onNextFish?: () => void;
+  onBoopFish?: () => void;
+  fishIndex?: number;
+  currentIndex?: number;
+  totalFishes?: number;
 }
 
 const RARITY_THEMES: Record<string, { badge: string; border: string; glow: string; text: string }> = {
@@ -55,9 +63,26 @@ const RARITY_THEMES: Record<string, { badge: string; border: string; glow: strin
 export const FishInfographicPanel: React.FC<FishInfographicPanelProps> = ({
   fish,
   onClose,
-  onFeedFish
+  onFeedFish,
+  onPrevFish,
+  onNextFish,
+  onBoopFish,
+  fishIndex,
+  currentIndex,
+  totalFishes = 1
 }) => {
   const [isFavorited, setIsFavorited] = useState(Boolean(fish.is_favorite));
+  const [boopPulse, setBoopPulse] = useState(false);
+
+  const activeFishIdx = currentIndex ?? fishIndex ?? 0;
+
+  const handleBoopClick = () => {
+    if (onBoopFish) {
+      onBoopFish();
+    }
+    setBoopPulse(true);
+    setTimeout(() => setBoopPulse(false), 900);
+  };
 
   // Determine estimated real-world metric length in cm
   const speciesLower = (fish.species_id || '').toLowerCase();
@@ -97,6 +122,31 @@ export const FishInfographicPanel: React.FC<FishInfographicPanelProps> = ({
       style={{ filter: `drop-shadow(0 0 35px ${rarityTheme.glow})` }}
     >
       <div className="flex-1 flex flex-col rounded-3xl bg-slate-950/95 backdrop-blur-2xl border border-sky-500/30 p-5 overflow-y-auto text-white shadow-2xl space-y-4">
+        {/* 0. Specimen Cycling Bar (Prev | Specimen X of N | Next) */}
+        {totalFishes > 1 && (
+          <div className="flex items-center justify-between px-3 py-1.5 rounded-2xl bg-slate-900/90 border border-cyan-500/30 text-xs font-mono">
+            <button
+              onClick={() => onPrevFish && onPrevFish()}
+              className="flex items-center gap-1 text-cyan-300 hover:text-white px-2 py-0.5 rounded-lg hover:bg-slate-800 transition-colors"
+              aria-label="Previous Specimen"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Prev</span>
+            </button>
+            <span className="text-slate-300 font-semibold">
+              Specimen <strong className="text-cyan-300">{activeFishIdx + 1}</strong> of {totalFishes}
+            </span>
+            <button
+              onClick={() => onNextFish && onNextFish()}
+              className="flex items-center gap-1 text-cyan-300 hover:text-white px-2 py-0.5 rounded-lg hover:bg-slate-800 transition-colors"
+              aria-label="Next Specimen"
+            >
+              <span>Next</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* 1. Header & Badges */}
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
@@ -262,17 +312,28 @@ export const FishInfographicPanel: React.FC<FishInfographicPanelProps> = ({
         </div>
 
         {/* 5. Quick Actions */}
-        <div className="pt-2 flex items-center gap-2">
+        <div className="pt-2 flex items-center gap-2 flex-wrap">
           <button
             onClick={() => onFeedFish && onFeedFish('flake')}
-            className="flex-1 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-lg shadow-amber-500/10"
+            className="flex-1 py-2.5 px-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-lg shadow-amber-500/10"
           >
             <span>🍞</span>
             <span>Feed Specimen</span>
           </button>
           <button
+            onClick={handleBoopClick}
+            className={`flex-1 py-2.5 px-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 border shadow-lg ${
+              boopPulse
+                ? 'bg-cyan-400/30 border-cyan-300 text-white shadow-cyan-400/30 scale-105'
+                : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40 shadow-cyan-500/10'
+            }`}
+          >
+            <span>⚡</span>
+            <span>{boopPulse ? 'Booped!' : 'Boop Specimen'}</span>
+          </button>
+          <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition-all active:scale-95"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition-all active:scale-95"
           >
             Close
           </button>
