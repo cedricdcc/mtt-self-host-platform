@@ -199,7 +199,7 @@ async function run() {
   sepBoids.update(0.05, 1.0);
   assert.ok(b1.velocity.x < b2.velocity.x, 'Separation must push nearby boids (dist < 2.4) apart');
 
-  // 4. Test upright stabilization for golden_seahorse & cosmic_jelly
+  // 4. Test upright stabilization for golden_seahorse & cosmic_jelly (including negative Z velocity)
   const seahorseGroup = new THREE.Group();
   seahorseGroup.userData = {
     speciesId: 'golden_seahorse',
@@ -210,12 +210,14 @@ async function run() {
   seahorseGroup.rotation.set(0.8, 0.2, -0.7);
   sepBoids.addFish({ user_fish_id: 3, species_id: 'golden_seahorse', depth_zone: 'sunlit', mesh: seahorseGroup });
   const shBoid = sepBoids.getAllFishes().find((f) => f.id === 3);
-  shBoid.velocity.set(1.0, 1.5, 1.0);
-  for (let i = 0; i < 15; i++) {
+  shBoid.velocity.set(0.5, 1.0, -1.5);
+  shBoid.target.set(5.0, 12.0, -15.0);
+  for (let i = 0; i < 20; i++) {
     sepBoids.update(0.05, 2.0 + i * 0.05);
   }
-  assert.ok(Math.abs(seahorseGroup.rotation.x) < 0.08, `Upright seahorse pitch should damp toward 0, got ${seahorseGroup.rotation.x}`);
-  assert.ok(Math.abs(seahorseGroup.rotation.z) < 0.08, `Upright seahorse roll should damp toward 0, got ${seahorseGroup.rotation.z}`);
+  assert.strictEqual(seahorseGroup.rotation.order, 'YXZ', 'Fish mesh rotation order must be YXZ to prevent gimbal flip on -Z yaw');
+  assert.ok(Math.abs(seahorseGroup.rotation.x) < 0.05, `Upright seahorse pitch should damp toward 0 when swimming in -Z, got ${seahorseGroup.rotation.x}`);
+  assert.ok(Math.abs(seahorseGroup.rotation.z) < 0.05, `Upright seahorse roll should damp toward 0 when swimming in -Z, got ${seahorseGroup.rotation.z}`);
 
   // 5. Test habitat affinity waypoint selection
   const trenchBoid = {

@@ -122,6 +122,9 @@ export class FishBoidsSystem {
     );
 
     data.mesh.position.copy(initialPos);
+    if (data.mesh.rotation.order !== 'YXZ') {
+      data.mesh.rotation.reorder('YXZ');
+    }
     const baseScale = data.mesh.scale.x || 1.0;
     data.mesh.userData.baseScale = baseScale;
     this.scene.add(data.mesh);
@@ -210,6 +213,9 @@ export class FishBoidsSystem {
     speedRatio: number = 1.0,
     reactionTimer: number = 0
   ): void {
+    if (mesh.rotation.order !== 'YXZ') {
+      mesh.rotation.reorder('YXZ');
+    }
     const u = mesh.userData || {};
     const locomotionType: string = u.locomotionType || 'carangiform';
     const speciesId: string = String(u.speciesId || '').toLowerCase();
@@ -638,6 +644,10 @@ export class FishBoidsSystem {
 
       // Integrate position
       mesh.position.addScaledVector(boid.velocity, delta);
+
+      if (mesh.rotation.order !== 'YXZ') {
+        mesh.rotation.reorder('YXZ');
+      }
 
       const locomotionType = mesh.userData.locomotionType || 'carangiform';
       const isUprightSpecies =
