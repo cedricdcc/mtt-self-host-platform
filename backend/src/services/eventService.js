@@ -9,22 +9,46 @@ function ensureEventsTable() {
   if (!hasEventsTable) {
     const migrationSql = fs.readFileSync(path.join(__dirname, "../db/migrations/035_events.sql"), "utf8");
     db.exec(migrationSql);
-  } else {
-    const tableInfo = db.prepare("PRAGMA table_info(events)").all();
-    const colNames = tableInfo.map(c => c.name);
-    if (!colNames.includes("source_id")) {
-      try { db.prepare("ALTER TABLE events ADD COLUMN source_id INTEGER REFERENCES sources(source_id) ON DELETE SET NULL").run(); } catch(e){}
-    }
-    if (!colNames.includes("target_language")) {
-      try { db.prepare("ALTER TABLE events ADD COLUMN target_language TEXT DEFAULT 'all'").run(); } catch(e){}
-    }
-    if (!colNames.includes("target_count")) {
-      try { db.prepare("ALTER TABLE events ADD COLUMN target_count INTEGER DEFAULT 100").run(); } catch(e){}
-    }
-    if (!colNames.includes("is_featured_homepage")) {
-      try { db.prepare("ALTER TABLE events ADD COLUMN is_featured_homepage INTEGER DEFAULT 0").run(); } catch(e){}
-    }
+  }
+  const tableInfo = db.prepare("PRAGMA table_info(events)").all();
+  const colNames = tableInfo.map(c => c.name);
+  if (!colNames.includes("source_id")) {
+    try { db.prepare("ALTER TABLE events ADD COLUMN source_id INTEGER REFERENCES sources(source_id) ON DELETE SET NULL").run(); } catch(e){}
+  }
+  if (!colNames.includes("target_language")) {
+    try { db.prepare("ALTER TABLE events ADD COLUMN target_language TEXT DEFAULT 'all'").run(); } catch(e){}
+  }
+  if (!colNames.includes("target_count")) {
+    try { db.prepare("ALTER TABLE events ADD COLUMN target_count INTEGER DEFAULT 100").run(); } catch(e){}
+  }
+  if (!colNames.includes("is_featured_homepage")) {
+    try { db.prepare("ALTER TABLE events ADD COLUMN is_featured_homepage INTEGER DEFAULT 0").run(); } catch(e){}
+  }
+  if (!colNames.includes("has_teams")) {
+    try { db.prepare("ALTER TABLE events ADD COLUMN has_teams INTEGER NOT NULL DEFAULT 1 CHECK(has_teams IN (0, 1))").run(); } catch(e){}
+  }
 
+  // Ensure event_contributions.team_id allows NULL
+  const contribInfo = db.prepare("PRAGMA table_info(event_contributions)").all();
+  const teamIdCol = contribInfo.find(c => c.name === "team_id");
+  if (teamIdCol && teamIdCol.notnull === 1) {
+    db.exec(`
+      PRAGMA foreign_keys=off;
+      CREATE TABLE IF NOT EXISTS event_contributions_new (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        team_id TEXT REFERENCES event_teams(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        translation_id INTEGER REFERENCES translations(id) ON DELETE SET NULL,
+        action_type TEXT NOT NULL CHECK(action_type IN ('TRANSLATION_CREATED', 'TRANSLATION_APPROVED', 'VOTE_CAST')),
+        points INTEGER NOT NULL DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO event_contributions_new SELECT * FROM event_contributions;
+      DROP TABLE event_contributions;
+      ALTER TABLE event_contributions_new RENAME TO event_contributions;
+      PRAGMA foreign_keys=on;
+    `);
   }
 }
 
@@ -249,6 +273,7 @@ function setFeaturedHomepageEvent(eventId) {
 }
 
 module.exports = {
+  ensureEventsTable,
   getEventSources,
   getAllEvents,
   getEventById,
