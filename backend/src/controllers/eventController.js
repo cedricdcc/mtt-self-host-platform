@@ -182,6 +182,28 @@ async function equipUserTitle(req, res) {
   }
 }
 
+async function getEventStats(req, res) {
+  try {
+    const { id } = req.params;
+    const { resolution, userOnly } = req.query;
+    const sessionUser = (req.session && req.session.user) || req.user;
+    const userId = sessionUser ? (sessionUser.id || sessionUser.user_id) : null;
+    const isUserOnly = userOnly === 'true' || userOnly === true;
+
+    if (isUserOnly && !userId) {
+      return res.status(401).json({ error: "Authentication required for user-only statistics" });
+    }
+
+    const stats = eventService.getEventStats(id, userId, resolution, isUserOnly);
+    res.json(stats);
+  } catch (err) {
+    if (err.message === "Event not found") {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   listEvents,
   getSources,
@@ -196,7 +218,8 @@ module.exports = {
   setFeatured,
   settleEvent,
   getUserTitles,
-  equipUserTitle
+  equipUserTitle,
+  getEventStats
 };
 
 

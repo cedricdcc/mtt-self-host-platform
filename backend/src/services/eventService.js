@@ -274,6 +274,150 @@ function setFeaturedHomepageEvent(eventId) {
   return null;
 }
 
+function getEventStats(eventId, userId = null, requestedResolution = 'smart', userOnly = false) {
+  ensureEventsTable();
+  const db = getDatabase();
+
+  const event = db.prepare("SELECT * FROM events WHERE id = ?").get(eventId);
+  if (!event) throw new Error("Event not found");
+
+  const isUserOnly = userOnly === true || userOnly === 'true';
+  const filterUser = (isUserOnly && userId) ? userId : null;
+
+  // 1. Calculate Summary Stats
+  let statsSql = `
+    SELECT 
+      COALESCE(SUM(CASE WHEN action_type = 'TRANSLATION_CREATED' THEN 1 ELSE 0 END), 0) as inReviewCount,
+      COALESCE(SUM(CASE WHEN action_type = 'TRANSLATION_APPROVED' THEN 1 ELSE 0 END), 0) as approvedCount,
+      COUNT(*) as totalActions,
+      COALESCE(SUM(points), 0) as totalPoints,
+      COUNT(DISTINCT user_id) as activeContributors
+    FROM event_contributions
+    WHERE event_id = ?
+  `;
+  const statsParams = [eventId];
+  if (filterUser) {
+    statsSql += ` AND user_id = ?`;
+    statsParams.push(filterUser);
+  }
+  const stats = db.prepare(statsSql).get(...statsParams) || {};
+
+  // 2. Resolve Smart Binning Resolution
+  let resolution = requestedResolution;
+  if (!resolution || resolution === 'smart') {
+    const startTime = new Date(event.start_date).getTime();
+    const nowTime = Date.now();
+    const elapsedHours = isNaN(startTime) ? 1 : Math.max(1, (nowTime - startTime) / (1000 * 60 * 60));
+    if (elapsedHours <= 48) {
+      resolution = 'hour';
+    } else if (elapsedHours <= 24 * 30) {
+      resolution = 'day';
+    } else {
+      resolution = 'week';
+    }
+  }
+
+  // Grouping format for SQLite
+  let groupFormat;
+  if (resolution === 'hour') {
+    groupFormat = "strftime('%Y-%m-%d %H:00', created_at)";
+  } else if (resolution === 'week') {
+    groupFormat = "strftime('%Y-W%W', created_at)";
+  } else {
+    resolution = 'day';
+    groupFormat = "strftime('%Y-%m-%d', created_at)";
+  }
+
+  let timelineSql = `
+    SELECT 
+      ${groupFormat} as timestamp,
+      COALESCE(SUM(CASE WHEN action_type = 'TRANSLATION_CREATED' THEN 1 ELSE 0 END), 0) as inReview,
+      COALESCE(SUM(CASE WHEN action_type = 'TRANSLATION_APPROVED' THEN 1 ELSE 0 END), 0) as approved,
+      COUNT(*) as total
+    FROM event_contributions
+    WHERE event_id = ?
+  `;
+  const timelineParams = [eventId];
+  if (filterUser) {
+    timelineSql += ` AND user_id = ?`;
+    timelineParams.push(filterUser);
+  }
+  timelineSql += ` GROUP BY ${groupFormat} ORDER BY timestamp ASC`;
+  const timelineRows = db.prepare(timelineSql).all(...timelineParams);
+
+  const timelineData = timelineRows.map(row => ({
+    timestamp: row.timestamp,
+    label: row.timestamp,
+    inReview: Number(row.inReview) || 0,
+    approved: Number(row.approved) || 0,
+    total: Number(row.total) || 0
+  }));
+
+  // 3. Individual Leaderboard
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  const nameExpr = userCols.includes("display_name") ? "COALESCE(u.display_name, u.username)" : "u.username";
+  const avatarExpr = userCols.includes("avatar_url") ? "u.avatar_url" : (userCols.includes("avatar") ? "u.avatar" : "NULL");
+  const hasExtra = userCols.includes("extra");
+
+  const leaderboardRows = db.prepare(`
+    SELECT 
+      u.id as userId,
+      ${nameExpr} as name,
+      ${avatarExpr} as avatarUrl,
+      ${hasExtra ? "u.extra as extra," : ""}
+      COALESCE(SUM(c.points), 0) as totalPoints,
+      COUNT(CASE WHEN c.action_type IN ('TRANSLATION_CREATED', 'TRANSLATION_APPROVED') THEN 1 END) as translationsCount
+    FROM event_contributions c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.event_id = ?
+    GROUP BY u.id
+    ORDER BY totalPoints DESC
+    LIMIT 50
+  `).all(eventId);
+
+  const individualLeaderboard = leaderboardRows.map(row => {
+    let displayName = row.name;
+    let avatarUrl = row.avatarUrl;
+    if (row.extra) {
+      try {
+        const extra = typeof row.extra === 'string' ? JSON.parse(row.extra) : row.extra;
+        if (!displayName || displayName === row.username) {
+          if (extra.name) displayName = extra.name;
+          else if (extra.display_name) displayName = extra.display_name;
+        }
+        if (!avatarUrl) {
+          avatarUrl = extra.avatar_url || extra.avatar || null;
+        }
+      } catch (e) {}
+    }
+    if (!avatarUrl && displayName) {
+      avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0ea5e9&color=fff`;
+    }
+    return {
+      userId: row.userId,
+      name: displayName,
+      avatarUrl,
+      totalPoints: Number(row.totalPoints) || 0,
+      translationsCount: Number(row.translationsCount) || 0
+    };
+  });
+
+  return {
+    stats: {
+      inReviewCount: Number(stats.inReviewCount) || 0,
+      approvedCount: Number(stats.approvedCount) || 0,
+      totalActions: Number(stats.totalActions) || 0,
+      totalPoints: Number(stats.totalPoints) || 0,
+      activeContributors: Number(stats.activeContributors) || 0
+    },
+    timeline: {
+      resolution,
+      data: timelineData
+    },
+    individualLeaderboard
+  };
+}
+
 module.exports = {
   ensureEventsTable,
   getEventSources,
@@ -285,7 +429,8 @@ module.exports = {
   joinTeam,
   deleteTeam,
   deleteEvent,
-  setFeaturedHomepageEvent
+  setFeaturedHomepageEvent,
+  getEventStats
 };
 
 

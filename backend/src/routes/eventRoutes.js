@@ -99,6 +99,37 @@ router.get("/events/sources", eventController.getSources);
  *         description: Admin access required
  */
 router.get("/events/:id", eventController.getEvent);
+
+/**
+ * @openapi
+ * /api/events/{id}/stats:
+ *   get:
+ *     summary: Get event statistics, timeline, and individual leaderboard
+ *     tags: [Events]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: resolution
+ *         schema:
+ *           type: string
+ *           enum: [smart, hour, day, week]
+ *       - in: query
+ *         name: userOnly
+ *         schema:
+ *           type: boolean
+ *     responses:
+ *       200:
+ *         description: Event statistics
+ *       401:
+ *         description: Authentication required for user-only statistics
+ *       404:
+ *         description: Event not found
+ */
+router.get("/events/:id/stats", eventController.getEventStats);
 router.delete("/events/:id", requireAdmin, eventController.deleteEvent);
 
 /**
