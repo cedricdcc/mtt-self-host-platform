@@ -25,6 +25,7 @@ export const AdminEvents: React.FC = () => {
   const [goalMode, setGoalMode] = useState<"FIXED" | "HIGHEST">("HIGHEST");
   const [targetCount, setTargetCount] = useState<number>(100);
   const [rewardTitle, setRewardTitle] = useState("");
+  const [hasTeams, setHasTeams] = useState(true);
 
   // Team Form states
   const [teamName, setTeamName] = useState("");
@@ -61,6 +62,7 @@ export const AdminEvents: React.FC = () => {
         targetLanguage,
         targetCount: goalMode === "HIGHEST" ? 0 : targetCount,
         rewardTitle,
+        hasTeams,
       });
       toast.success("Competition created successfully!");
       setShowCreateModal(false);
@@ -73,6 +75,7 @@ export const AdminEvents: React.FC = () => {
       setGoalMode("HIGHEST");
       setTargetCount(100);
       setRewardTitle("");
+      setHasTeams(true);
       loadEvents();
     } catch (err: any) {
       toast.error(err.message || "Failed to create event");
@@ -246,6 +249,11 @@ export const AdminEvents: React.FC = () => {
                       }`}>
                         {evt.status}
                       </span>
+                      {evt.has_teams === 0 && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                          👤 Individual Challenge
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-slate-300 mt-1">{evt.description}</p>
                   </div>
@@ -297,12 +305,14 @@ export const AdminEvents: React.FC = () => {
                     >
                       Event QR
                     </button>
-                    <button
-                      onClick={() => setTeamModalEventId(evt.id)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg"
-                    >
-                      + Add Team
-                    </button>
+                    {evt.has_teams !== 0 && (
+                      <button
+                        onClick={() => setTeamModalEventId(evt.id)}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg"
+                      >
+                        + Add Team
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteEvent(evt.id, evt.title)}
                       className="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition"
@@ -354,12 +364,16 @@ export const AdminEvents: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-500 block">Target Language / Teams:</span>
-                    <span className="font-semibold text-slate-200">{evt.target_language?.toUpperCase() || "ALL"} • {evt.teams?.length || 0} teams</span>
+                    <span className="font-semibold text-slate-200">
+                      {evt.target_language?.toUpperCase() || "ALL"} • {evt.has_teams === 0 ? "👤 Individual Challenge" : `${evt.teams?.length || 0} teams`}
+                    </span>
                   </div>
                 </div>
 
                 {/* Teams List */}
-                {evt.teams && evt.teams.length > 0 ? (
+                {evt.has_teams === 0 ? (
+                  <p className="text-xs text-slate-400 italic">👤 Individual Challenge — participants contribute directly without teams.</p>
+                ) : evt.teams && evt.teams.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {evt.teams.map((t) => (
                       <div key={t.id} className="bg-slate-900/80 border border-slate-700/60 p-3 rounded-lg flex justify-between items-center">
@@ -445,6 +459,33 @@ export const AdminEvents: React.FC = () => {
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg text-sm focus:outline-none focus:border-cyan-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Competition Format</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setHasTeams(true)}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold border transition ${
+                      hasTeams ? "bg-cyan-600/30 border-cyan-500 text-cyan-300" : "bg-slate-800 border-slate-700 text-slate-400"
+                    }`}
+                  >
+                    👥 Team Competition
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHasTeams(false)}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold border transition ${
+                      !hasTeams ? "bg-cyan-600/30 border-cyan-500 text-cyan-300" : "bg-slate-800 border-slate-700 text-slate-400"
+                    }`}
+                  >
+                    👤 Individual Challenge (No Teams)
+                  </button>
+                </div>
+                {!hasTeams && (
+                  <p className="text-[11px] text-slate-400 mt-1">Participants contribute directly as individuals. No teams are created or required.</p>
+                )}
               </div>
 
               <div>

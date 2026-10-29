@@ -355,6 +355,40 @@ export interface Event {
   user_team_id?: string;
   status: 'UPCOMING' | 'ACTIVE' | 'ENDED' | 'CANCELLED';
   teams?: EventTeam[];
+  has_teams?: number;
+}
+
+export interface EventStatsSummary {
+  inReviewCount: number;
+  approvedCount: number;
+  totalActions: number;
+  totalPoints: number;
+  activeContributors: number;
+}
+
+export interface EventTimelinePoint {
+  timestamp: string;
+  label: string;
+  inReview: number;
+  approved: number;
+  total: number;
+}
+
+export interface IndividualLeaderboardEntry {
+  userId: number;
+  name: string;
+  avatarUrl?: string | null;
+  totalPoints: number;
+  translationsCount: number;
+}
+
+export interface EventStatsResponse {
+  stats: EventStatsSummary;
+  timeline: {
+    resolution: 'hour' | 'day' | 'week';
+    data: EventTimelinePoint[];
+  };
+  individualLeaderboard: IndividualLeaderboardEntry[];
 }
 
 export interface UserTitle {

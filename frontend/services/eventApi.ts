@@ -1,5 +1,5 @@
 import { backendApi } from "./api";
-import { Event, EventTeam } from "../types";
+import { Event, EventTeam, EventStatsResponse } from "../types";
 
 export interface EventSource {
   source_id: number;
@@ -28,6 +28,7 @@ export async function createEvent(data: {
   targetLanguage?: string;
   targetCount?: number;
   rewardTitle?: string;
+  hasTeams?: boolean;
 }): Promise<Event> {
   return backendApi.post<Event>("/events", data);
 }
@@ -71,5 +72,34 @@ export async function equipUserTitle(rewardId: string | null): Promise<{ success
 export async function settleEventRewards(eventId: string): Promise<{ settled: boolean; teamName?: string; awardedCount?: number; userIds?: number[]; reason?: string }> {
   return backendApi.post<{ settled: boolean; teamName?: string; awardedCount?: number; userIds?: number[]; reason?: string }>(`/events/${eventId}/settle`, {});
 }
+
+export const fetchEventStats = async (
+  eventId: string,
+  resolution: string = 'smart',
+  userOnly: boolean = false
+): Promise<EventStatsResponse> => {
+  let token = localStorage.getItem('token');
+  if (!token) {
+    const storedUser = localStorage.getItem('marineterm_user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        if (user.token) token = user.token;
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`/api/events/${eventId}/stats?resolution=${resolution}&userOnly=${userOnly}`, { headers });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to fetch event stats');
+  }
+  return res.json();
+};
+
 
 
