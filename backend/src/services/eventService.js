@@ -185,7 +185,7 @@ function joinTeam(eventId, identifier, userId) {
 }
 
 
-function createEvent({ title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle }) {
+function createEvent({ title, description, startDate, endDate, sourceId, targetLanguage, targetCount, rewardTitle, hasTeams }) {
   ensureEventsTable();
   const db = getDatabase();
   const id = `evt_${crypto.randomUUID()}`;
@@ -209,10 +209,12 @@ function createEvent({ title, description, startDate, endDate, sourceId, targetL
     parsedTargetCount = parseInt(targetCount, 10);
   }
 
+  const parsedHasTeams = (hasTeams === false || hasTeams === 0 || hasTeams === "0" || hasTeams === "false") ? 0 : 1;
+
   db.prepare(`
-    INSERT INTO events (id, title, description, start_date, end_date, source_id, target_language, target_count, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, title, description || "", startDate, endDate, parsedSourceId, targetLanguage || "all", parsedTargetCount, status);
+    INSERT INTO events (id, title, description, start_date, end_date, source_id, target_language, target_count, status, has_teams)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, title, description || "", startDate, endDate, parsedSourceId, targetLanguage || "all", parsedTargetCount, status, parsedHasTeams);
 
   // If a custom reward title name was provided, create an event_rewards entry
   if (rewardTitle) {
