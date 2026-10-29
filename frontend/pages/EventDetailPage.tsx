@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { fetchEventDetails, joinEventTeam, deleteEvent, deleteTeam } from "../services/eventApi";
-import { Event } from "../types";
+import { fetchEventDetails, joinEventTeam, deleteEvent, deleteTeam, fetchEventStats } from "../services/eventApi";
+import { Event, EventStatsResponse } from "../types";
 import { QRCodeModal } from "../components/QRCodeModal";
+import { EventActivityChart } from "../components/EventActivityChart";
 import { useAuth } from "../context/AuthContext";
-import { Trash2, Trophy, Users, Zap, QrCode } from "lucide-react";
+import { Trash2, Trophy, Users, Zap, QrCode, Activity } from "lucide-react";
 import toast from "react-hot-toast";
 
 import { getPreferredNonEnglishLanguage } from "../utils/userLanguage";
@@ -22,6 +23,16 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
   const [activeJoinCode, setActiveJoinCode] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const [targetTeamId, setTargetTeamId] = useState<string | null>(null);
+  const [eventStats, setEventStats] = useState<EventStatsResponse | null>(null);
+  const [userOnly, setUserOnly] = useState<boolean>(false);
+  const [chartResolution, setChartResolution] = useState<string>('smart');
+
+  const loadStats = () => {
+    if (!activeEventId) return;
+    fetchEventStats(activeEventId, chartResolution, userOnly)
+      .then(setEventStats)
+      .catch((err) => console.error("Failed to load event stats:", err));
+  };
 
   const loadEvent = () => {
     if (!activeEventId) return;
@@ -30,7 +41,12 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
       .then(setEvent)
       .catch((err) => toast.error(err.message || "Failed to load competition details"))
       .finally(() => setLoading(false));
+    loadStats();
   };
+
+  useEffect(() => {
+    loadStats();
+  }, [activeEventId, chartResolution, userOnly]);
 
   useEffect(() => {
     loadEvent();
@@ -255,6 +271,113 @@ export const EventDetailPage: React.FC<{ eventId?: string }> = ({ eventId: propE
           </div>
         </div>
       )}
+
+      {/* Event Activity & Performance */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Activity className="w-6 h-6 text-cyan-500" /> Event Activity &amp; Performance
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Real-time submission throughput and participation dynamics.
+            </p>
+          </div>
+
+          {/* Scope Toggle: All Event Activity vs My Contributions */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 self-start sm:self-auto">
+            <button
+              onClick={() => setUserOnly(false)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                !userOnly
+                  ? 'bg-white dark:bg-cyan-600 text-cyan-700 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              All Event Activity
+            </button>
+            <button
+              onClick={() => {
+                if (!user) {
+                  toast('Please log in to view personal contributions', { icon: '🔐' });
+                  return;
+                }
+                setUserOnly(true);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                userOnly
+                  ? 'bg-white dark:bg-cyan-600 text-cyan-700 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              My Contributions
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span className="font-medium">In Review</span>
+              <span className="text-amber-500 font-bold">📝</span>
+            </div>
+            <div className="text-2xl font-extrabold text-amber-500 dark:text-amber-400 font-mono">
+              {eventStats?.stats?.inReviewCount ?? 0}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Pending review
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span className="font-medium">Approved</span>
+              <span className="text-emerald-500 font-bold">✅</span>
+            </div>
+            <div className="text-2xl font-extrabold text-emerald-500 dark:text-emerald-400 font-mono">
+              {eventStats?.stats?.approvedCount ?? 0}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Verified submissions
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span className="font-medium">Total Points</span>
+              <Zap className="w-4 h-4 text-cyan-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-cyan-600 dark:text-cyan-400 font-mono">
+              {eventStats?.stats?.totalPoints ?? 0}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              {eventStats?.stats?.totalActions ?? 0} total actions
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <span className="font-medium">Contributors</span>
+              <Users className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div className="text-2xl font-extrabold text-indigo-500 dark:text-indigo-400 font-mono">
+              {eventStats?.stats?.activeContributors ?? 0}
+            </div>
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Active participants
+            </div>
+          </div>
+        </div>
+
+        {/* Activity Chart */}
+        <EventActivityChart
+          data={eventStats?.timeline?.data || []}
+          resolution={eventStats?.timeline?.resolution || 'day'}
+          selectedResolution={chartResolution}
+          onResolutionChange={setChartResolution}
+        />
+      </div>
 
       {/* Leaderboard Podium */}
       <div className="flex items-center justify-between mb-4">
