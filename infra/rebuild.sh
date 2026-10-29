@@ -17,7 +17,7 @@ free_port_5000() {
   # Try fuser
   if command -v fuser >/dev/null 2>&1; then
     log "Using fuser to kill processes on port 5000..."
-    sudo fuser -k -9 5000/tcp >/dev/null 2>&1 || fuser -k -9 5000/tcp >/dev/null 2>&1 || true
+    fuser -k -9 5000/tcp >/dev/null 2>&1 || true
   fi
 
   # Try lsof fallback
@@ -26,7 +26,7 @@ free_port_5000() {
     pids=$(lsof -ti tcp:5000 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
       log "Using lsof to kill processes on port 5000 (PIDs: $pids)..."
-      echo "$pids" | xargs -r kill -9 >/dev/null 2>&1 || sudo echo "$pids" | xargs -r kill -9 >/dev/null 2>&1 || true
+      echo "$pids" | xargs -r kill -9 >/dev/null 2>&1 || true
     fi
   fi
 
